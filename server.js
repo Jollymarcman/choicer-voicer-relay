@@ -40,7 +40,7 @@ function createRelayServer(options = {}) {
   const server = http.createServer((request, response) => {
     if (request.url === "/health" || request.url === "/") {
       response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-      response.end(JSON.stringify({ ok: true, service: "choicer-voicer-relay", rooms: rooms.size }));
+      response.end(JSON.stringify({ ok: true, service: "choicer-voicer-relay", protocol: PROTOCOL_VERSION, rooms: rooms.size }));
       return;
     }
     response.writeHead(404, { "content-type": "application/json" });
