@@ -4,7 +4,7 @@ const crypto = require("node:crypto");
 const http = require("node:http");
 const { WebSocket, WebSocketServer } = require("ws");
 
-const PROTOCOL_VERSION = 3;
+const SUPPORTED_PROTOCOLS = new Set([3, 4]);
 const MAX_PLAYERS = 4;
 const MAX_PAYLOAD_BYTES = 64 * 1024 * 1024;
 const ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -40,7 +40,7 @@ function createRelayServer(options = {}) {
   const server = http.createServer((request, response) => {
     if (request.url === "/health" || request.url === "/") {
       response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-      response.end(JSON.stringify({ ok: true, service: "choicer-voicer-relay", protocol: PROTOCOL_VERSION, rooms: rooms.size }));
+      response.end(JSON.stringify({ ok: true, service: "choicer-voicer-relay", protocols: [...SUPPORTED_PROTOCOLS], rooms: rooms.size }));
       return;
     }
     response.writeHead(404, { "content-type": "application/json" });
@@ -72,13 +72,14 @@ function createRelayServer(options = {}) {
           closeSocket(socket, 4000, "Invalid registration message");
           return;
         }
-        if (Number(message.protocol) !== PROTOCOL_VERSION) {
+        const protocol = Number(message.protocol);
+        if (!SUPPORTED_PROTOCOLS.has(protocol)) {
           closeSocket(socket, 4002, "Game version mismatch");
           return;
         }
         if (message.type === "create") {
           const roomCode = randomRoomCode(rooms);
-          const room = { host: socket, peers: new Map([[1, socket]]), nextPeerId: 2 };
+          const room = { host: socket, peers: new Map([[1, socket]]), nextPeerId: 2, protocol };
           rooms.set(roomCode, room);
           socket.roomCode = roomCode;
           socket.peerId = 1;
@@ -91,6 +92,10 @@ function createRelayServer(options = {}) {
           const room = rooms.get(roomCode);
           if (!room || room.host.readyState !== WebSocket.OPEN) {
             closeSocket(socket, 4004, "Room not found");
+            return;
+          }
+          if (room.protocol !== protocol) {
+            closeSocket(socket, 4002, "Game version mismatch");
             return;
           }
           if (room.peers.size >= MAX_PLAYERS) {

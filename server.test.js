@@ -18,14 +18,14 @@ test("creates a room, joins a friend, and relays binary packets", async (context
 
   const host = new WebSocket(url);
   await once(host, "open");
-  host.send(JSON.stringify({ type: "create", protocol: 3 }));
+  host.send(JSON.stringify({ type: "create", protocol: 4 }));
   const created = JSON.parse((await nextMessage(host)).data.toString());
   assert.match(created.room, /^[A-Z2-9]{8}$/);
 
   const friend = new WebSocket(url);
   await once(friend, "open");
   const hostJoinNotice = nextMessage(host);
-  friend.send(JSON.stringify({ type: "join", protocol: 3, room: created.room, name: "Friend" }));
+  friend.send(JSON.stringify({ type: "join", protocol: 4, room: created.room, name: "Friend" }));
   const joined = JSON.parse((await nextMessage(friend)).data.toString());
   const notice = JSON.parse((await hostJoinNotice).data.toString());
   assert.equal(joined.peerId, 2);
@@ -52,4 +52,34 @@ test("creates a room, joins a friend, and relays binary packets", async (context
 
   host.close();
   friend.close();
+});
+
+test("keeps protocol 3 rooms working and rejects a different-version client", async (context) => {
+  const relay = createRelayServer({ port: 0, host: "127.0.0.1" });
+  const address = await relay.listen();
+  context.after(() => relay.close());
+  const url = `ws://127.0.0.1:${address.port}`;
+
+  const host = new WebSocket(url);
+  await once(host, "open");
+  host.send(JSON.stringify({ type: "create", protocol: 3 }));
+  const created = JSON.parse((await nextMessage(host)).data.toString());
+
+  const oldFriend = new WebSocket(url);
+  await once(oldFriend, "open");
+  const hostJoinNotice = nextMessage(host);
+  oldFriend.send(JSON.stringify({ type: "join", protocol: 3, room: created.room, name: "Old Friend" }));
+  const joined = JSON.parse((await nextMessage(oldFriend)).data.toString());
+  await hostJoinNotice;
+  assert.equal(joined.peerId, 2);
+
+  const newFriend = new WebSocket(url);
+  await once(newFriend, "open");
+  const closed = once(newFriend, "close");
+  newFriend.send(JSON.stringify({ type: "join", protocol: 4, room: created.room, name: "New Friend" }));
+  const [code] = await closed;
+  assert.equal(code, 4002);
+
+  host.close();
+  oldFriend.close();
 });
