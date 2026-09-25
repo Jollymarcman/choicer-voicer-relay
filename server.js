@@ -4,7 +4,7 @@ const crypto = require("node:crypto");
 const http = require("node:http");
 const { WebSocket, WebSocketServer } = require("ws");
 
-const PROTOCOL_VERSION = 2;
+const PROTOCOL_VERSION = 3;
 const MAX_PLAYERS = 4;
 const MAX_PAYLOAD_BYTES = 64 * 1024 * 1024;
 const ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
