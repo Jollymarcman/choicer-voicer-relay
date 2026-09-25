@@ -1,0 +1,17 @@
+{
+  "name": "choicer-voicer-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Small room-based WebSocket relay for The Choicer Voicer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
