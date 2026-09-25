@@ -18,14 +18,14 @@ test("creates a room, joins a friend, and relays binary packets", async (context
 
   const host = new WebSocket(url);
   await once(host, "open");
-  host.send(JSON.stringify({ type: "create", protocol: 1 }));
+  host.send(JSON.stringify({ type: "create", protocol: 2 }));
   const created = JSON.parse((await nextMessage(host)).data.toString());
   assert.match(created.room, /^[A-Z2-9]{8}$/);
 
   const friend = new WebSocket(url);
   await once(friend, "open");
   const hostJoinNotice = nextMessage(host);
-  friend.send(JSON.stringify({ type: "join", protocol: 1, room: created.room, name: "Friend" }));
+  friend.send(JSON.stringify({ type: "join", protocol: 2, room: created.room, name: "Friend" }));
   const joined = JSON.parse((await nextMessage(friend)).data.toString());
   const notice = JSON.parse((await hostJoinNotice).data.toString());
   assert.equal(joined.peerId, 2);
