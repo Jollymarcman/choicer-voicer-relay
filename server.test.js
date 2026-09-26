@@ -18,17 +18,19 @@ test("creates a room, joins a friend, and relays binary packets", async (context
 
   const host = new WebSocket(url);
   await once(host, "open");
-  host.send(JSON.stringify({ type: "create", protocol: 6 }));
+  host.send(JSON.stringify({ type: "create", protocol: 7, name: "Host" }));
   const created = JSON.parse((await nextMessage(host)).data.toString());
   assert.match(created.room, /^[A-Z2-9]{8}$/);
+  assert.match(created.resumeToken, /^[a-f0-9]{48}$/);
 
   const friend = new WebSocket(url);
   await once(friend, "open");
   const hostJoinNotice = nextMessage(host);
-  friend.send(JSON.stringify({ type: "join", protocol: 6, room: created.room, name: "Friend" }));
+  friend.send(JSON.stringify({ type: "join", protocol: 7, room: created.room, name: "Friend" }));
   const joined = JSON.parse((await nextMessage(friend)).data.toString());
   const notice = JSON.parse((await hostJoinNotice).data.toString());
   assert.equal(joined.peerId, 2);
+  assert.match(joined.resumeToken, /^[a-f0-9]{48}$/);
   assert.deepEqual(notice, { type: "peer_joined", peerId: 2, name: "Friend" });
 
   const toFriend = Buffer.alloc(7);
@@ -52,6 +54,81 @@ test("creates a room, joins a friend, and relays binary packets", async (context
 
   host.close();
   friend.close();
+});
+
+test("resumes the same host room and friend slot after interrupted sockets", async (context) => {
+  const relay = createRelayServer({ port: 0, host: "127.0.0.1", reconnectGraceMs: 2_000 });
+  const address = await relay.listen();
+  context.after(() => relay.close());
+  const url = `ws://127.0.0.1:${address.port}`;
+
+  const host = new WebSocket(url);
+  await once(host, "open");
+  host.send(JSON.stringify({ type: "create", protocol: 7, name: "Host" }));
+  const created = JSON.parse((await nextMessage(host)).data.toString());
+
+  const friend = new WebSocket(url);
+  await once(friend, "open");
+  const joinedAtHost = nextMessage(host);
+  friend.send(JSON.stringify({ type: "join", protocol: 7, room: created.room, name: "Friend" }));
+  const joined = JSON.parse((await nextMessage(friend)).data.toString());
+  await joinedAtHost;
+
+  const hostClosed = once(host, "close");
+  host.terminate();
+  await hostClosed;
+  assert.equal(relay.rooms.has(created.room), true);
+
+  const resumedHost = new WebSocket(url);
+  await once(resumedHost, "open");
+  resumedHost.send(JSON.stringify({
+    type: "resume",
+    protocol: 7,
+    room: created.room,
+    peerId: 1,
+    resumeToken: created.resumeToken,
+  }));
+  const hostResume = JSON.parse((await nextMessage(resumedHost)).data.toString());
+  assert.equal(hostResume.type, "resumed");
+  assert.deepEqual(hostResume.players, [
+    { peerId: 1, name: "Host" },
+    { peerId: 2, name: "Friend" },
+  ]);
+
+  const friendClosed = once(friend, "close");
+  friend.terminate();
+  await friendClosed;
+
+  const resumedFriend = new WebSocket(url);
+  await once(resumedFriend, "open");
+  const friendNotice = nextMessage(resumedHost);
+  resumedFriend.send(JSON.stringify({
+    type: "resume",
+    protocol: 7,
+    room: created.room,
+    peerId: joined.peerId,
+    resumeToken: joined.resumeToken,
+  }));
+  const friendResume = JSON.parse((await nextMessage(resumedFriend)).data.toString());
+  assert.equal(friendResume.type, "resumed");
+  assert.equal(friendResume.peerId, 2);
+  assert.deepEqual(JSON.parse((await friendNotice).data.toString()), {
+    type: "peer_resumed",
+    peerId: 2,
+    name: "Friend",
+  });
+
+  const packet = Buffer.alloc(5);
+  packet.writeUInt32BE(2, 0);
+  packet[4] = 99;
+  const delivered = nextMessage(resumedFriend);
+  resumedHost.send(packet);
+  const received = await delivered;
+  assert.equal(received.data.readUInt32BE(0), 1);
+  assert.equal(received.data[4], 99);
+
+  resumedHost.close(1000);
+  resumedFriend.close(1000);
 });
 
 test("keeps protocol 3 rooms working and rejects a different-version client", async (context) => {
