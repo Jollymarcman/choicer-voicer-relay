@@ -1,8 +1,16 @@
-[gd_resource type="AudioBusLayout" load_steps=2 format=3]
+[gd_resource type="AudioBusLayout" load_steps=4 format=3]
 
 [sub_resource type="AudioEffectRecord" id="AudioEffectRecord_web"]
 resource_name = "Browser microphone recorder"
 format = 1
+
+[sub_resource type="AudioEffectCapture" id="AudioEffectCapture_mic"]
+resource_name = "Browser microphone waveform"
+buffer_length = 0.2
+
+[sub_resource type="AudioEffectCapture" id="AudioEffectCapture_prompt"]
+resource_name = "Browser prompt waveform"
+buffer_length = 0.2
 
 [resource]
 bus/0/volume_db = 0.0
@@ -14,3 +22,13 @@ bus/1/volume_db = 0.0
 bus/1/send = &"Master"
 bus/1/effect/0/effect = SubResource("AudioEffectRecord_web")
 bus/1/effect/0/enabled = true
+bus/1/effect/1/effect = SubResource("AudioEffectCapture_mic")
+bus/1/effect/1/enabled = true
+bus/2/name = &"PromptAnalysis"
+bus/2/solo = false
+bus/2/mute = false
+bus/2/bypass_fx = false
+bus/2/volume_db = 0.0
+bus/2/send = &"Master"
+bus/2/effect/0/effect = SubResource("AudioEffectCapture_prompt")
+bus/2/effect/0/enabled = true

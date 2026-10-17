@@ -1,6 +1,7 @@
 extends Control
 
 const DubPack = preload("res://dub_pack.gd")
+const BrowserWaveform = preload("res://browser_waveform.gd")
 const VIDEO_DUB_SESSION := 5
 const PACK_ROOT := "user://packs_voice/"
 const TEMP_ROOT := "user://.temp/online_pack_sync/"
@@ -23,6 +24,9 @@ var record_preview: TextureRect
 var record_caption: Label
 var record_character: Label
 var record_progress: Label
+var record_phase: Label
+var record_time: Label
+var record_waveform: BrowserWaveform
 var record_button: Button
 var _record_pressed := false
 var _queue_cancelled := false
@@ -36,6 +40,8 @@ var playback_audio_nodes: Node
 var microphone_player: AudioStreamPlayer
 var prompt_player: AudioStreamPlayer
 var record_effect: AudioEffectRecord
+var prompt_capture: AudioEffectCapture
+var microphone_capture: AudioEffectCapture
 
 var current_pack: Dictionary = {}
 var current_pack_path := ""
@@ -213,6 +219,32 @@ func _build_record_overlay() -> void:
 	record_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	record_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	rows.add_child(record_preview)
+	record_phase = Label.new()
+	record_phase.text = "READY"
+	record_phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	record_phase.add_theme_font_size_override("font_size", 20)
+	record_phase.add_theme_color_override("font_color", Color("62e7ff"))
+	rows.add_child(record_phase)
+	record_waveform = BrowserWaveform.new()
+	record_waveform.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rows.add_child(record_waveform)
+	var waveform_key := HBoxContainer.new()
+	waveform_key.alignment = BoxContainer.ALIGNMENT_CENTER
+	waveform_key.add_theme_constant_override("separation", 30)
+	rows.add_child(waveform_key)
+	var original_key := Label.new()
+	original_key.text = "■ Original"
+	original_key.add_theme_color_override("font_color", Color("62e7ff"))
+	waveform_key.add_child(original_key)
+	var voice_key := Label.new()
+	voice_key.text = "■ Your voice"
+	voice_key.add_theme_color_override("font_color", Color("ffb24a"))
+	waveform_key.add_child(voice_key)
+	record_time = Label.new()
+	record_time.text = "0:00.0 / 0:00.0"
+	record_time.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	record_time.add_theme_font_size_override("font_size", 18)
+	rows.add_child(record_time)
 	record_progress = Label.new()
 	record_progress.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	record_progress.add_theme_font_size_override("font_size", 24)
@@ -270,9 +302,13 @@ func _setup_audio() -> void:
 	microphone_player.bus = "Record"
 	add_child(microphone_player)
 	prompt_player = AudioStreamPlayer.new()
+	prompt_player.bus = "PromptAnalysis"
 	add_child(prompt_player)
 	var bus_index := AudioServer.get_bus_index("Record")
 	record_effect = AudioServer.get_bus_effect(bus_index, 0) as AudioEffectRecord
+	microphone_capture = AudioServer.get_bus_effect(bus_index, 1) as AudioEffectCapture
+	var prompt_bus_index := AudioServer.get_bus_index("PromptAnalysis")
+	prompt_capture = AudioServer.get_bus_effect(prompt_bus_index, 0) as AudioEffectCapture
 
 
 func _connect_relay_signals() -> void:
@@ -520,6 +556,10 @@ func _show_record_line(line: Dictionary, index: int, total: int, settings: Dicti
 	record_character.text = "Character: %s" % ", ".join(line.get("characters", PackedStringArray()))
 	record_caption.text = str(line.get("caption", "")) if bool(settings.get("show_captions", true)) else "Captions disabled by the host"
 	record_button.text = "●  RECORD"
+	record_phase.text = "READY — press Record when you are ready"
+	record_phase.add_theme_color_override("font_color", Color("62e7ff"))
+	record_time.text = "0:00.0 / %s" % _format_clock((line.get("stream") as AudioStream).get_length() if line.get("stream") else 0.0)
+	record_waveform.reset_all()
 	record_overlay.show()
 
 
@@ -528,34 +568,88 @@ func _capture_line(stream: AudioStream, settings: Dictionary) -> AudioStreamWAV:
 		return null
 	if not microphone_player.playing:
 		microphone_player.play()
-	# Match the desktop guest flow: hear the source once, then choose when to perform.
+	record_waveform.reset_all()
+	# Match the desktop guest flow: hear the source once, build its waveform,
+	# then overlay the player's live microphone waveform during the performance.
 	if not bool(settings.get("mute_prompts", false)):
-		record_progress.text = "Listen to the original..."
-		prompt_player.stream = stream
-		prompt_player.volume_db = 0.0
-		prompt_player.play()
-		await prompt_player.finished
+		record_progress.text = "Listen to the original, then match its timing"
+		record_phase.text = "LISTEN — original line"
+		record_phase.add_theme_color_override("font_color", Color("62e7ff"))
+		await _play_prompt_visual(stream, false)
 	var countdown := maxf(0.0, float(settings.get("countdown_time", 2.0)))
 	while countdown > 0.0:
 		record_progress.text = "Recording in %.1f..." % countdown
+		record_phase.text = "GET READY"
+		record_phase.add_theme_color_override("font_color", Color("ffd36a"))
+		record_waveform.set_progress(0.0)
 		var step := minf(0.25, countdown)
 		await get_tree().create_timer(step).timeout
 		countdown -= step
 	record_progress.text = "RECORDING — perform the line now!"
-	prompt_player.stream = stream
+	record_phase.text = "● RECORDING — orange is your voice"
+	record_phase.add_theme_color_override("font_color", Color("ffb24a"))
+	record_waveform.reset_voice()
 	prompt_player.volume_db = -80.0 if bool(settings.get("mute_prompts", false)) else 0.0
-	prompt_player.play()
-	# The desktop host starts microphone capture 125 ms into its prompt. Using
-	# the same origin prevents the browser guest from sounding late.
-	await get_tree().create_timer(0.125).timeout
-	record_effect.set_recording_active(true)
-	if prompt_player.playing:
-		await prompt_player.finished
+	await _play_prompt_visual(stream, true)
 	await get_tree().create_timer(0.25).timeout
-	record_effect.set_recording_active(false)
+	if record_effect.is_recording_active():
+		record_effect.set_recording_active(false)
 	var wav := record_effect.get_recording()
 	prompt_player.volume_db = 0.0
+	record_phase.text = "SENT — moving to the next line"
+	record_phase.add_theme_color_override("font_color", Color("a8ffb3"))
 	return wav
+
+
+func _play_prompt_visual(stream: AudioStream, capture_microphone: bool) -> void:
+	var duration := maxf(0.01, stream.get_length())
+	prompt_player.stream = stream
+	if prompt_capture:
+		prompt_capture.clear_buffer()
+	if microphone_capture:
+		microphone_capture.clear_buffer()
+	prompt_player.play()
+	var recording_started := not capture_microphone
+	while prompt_player.playing:
+		var position := minf(prompt_player.get_playback_position(), duration)
+		var visual_progress := position / duration
+		if capture_microphone and not recording_started and position >= 0.125:
+			record_effect.set_recording_active(true)
+			recording_started = true
+		_capture_waveform_peak(prompt_capture, visual_progress, false)
+		if capture_microphone and recording_started:
+			_capture_waveform_peak(microphone_capture, visual_progress, true)
+		record_waveform.set_progress(visual_progress)
+		record_time.text = "%s / %s" % [_format_clock(position), _format_clock(duration)]
+		await get_tree().process_frame
+	if capture_microphone and not recording_started:
+		record_effect.set_recording_active(true)
+	record_waveform.set_progress(1.0)
+	record_time.text = "%s / %s" % [_format_clock(duration), _format_clock(duration)]
+
+
+func _capture_waveform_peak(capture: AudioEffectCapture, at_progress: float, voice: bool) -> void:
+	if not capture:
+		return
+	var available := capture.get_frames_available()
+	if available <= 0:
+		return
+	var frames := capture.get_buffer(available)
+	var peak := 0.0
+	# Sampling every eighth frame keeps the browser light while retaining the
+	# shape and timing of speech accurately enough for the dubbing display.
+	for index in range(0, frames.size(), 8):
+		var frame: Vector2 = frames[index]
+		peak = maxf(peak, maxf(absf(frame.x), absf(frame.y)))
+	if voice:
+		record_waveform.add_voice_peak(at_progress, peak)
+	else:
+		record_waveform.add_source_peak(at_progress, peak)
+
+
+func _format_clock(seconds: float) -> String:
+	var safe_seconds := maxf(0.0, seconds)
+	return "%d:%04.1f" % [floori(safe_seconds / 60.0), fmod(safe_seconds, 60.0)]
 
 
 func _on_queue_cancelled(_queue_id: int, reason: String) -> void:
