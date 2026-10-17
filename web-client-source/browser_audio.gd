@@ -108,8 +108,11 @@ const BRIDGE_SOURCE := """
             peak = Math.max(peak, abs); squares += value * value; count++;
           }
           const rms = Math.sqrt(squares / Math.max(1, count));
+          // Godot's spectrum analyser reports much lower magnitudes than the
+          // decoded PCM peak/RMS values below. Attenuate by 12 dB so the same
+          // original waveform drawer has a similar height to the desktop UI.
           const level = amplitude => Math.round(Math.max(0, Math.min(1,
-            (60 + 20 * Math.log10(Math.max(amplitude, 0.000001))) / 60)) * 255);
+            (60 + 20 * Math.log10(Math.max(amplitude * 0.25, 0.000001))) / 60)) * 255);
           maxima.push(level(peak)); averages.push(level(rms));
         }
         this.waveformJson = JSON.stringify({average: averages, max: maxima, pitch: []});
