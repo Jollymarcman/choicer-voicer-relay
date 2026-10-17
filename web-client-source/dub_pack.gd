@@ -83,8 +83,8 @@ static func _collect_lines(root: String, folder: String, output: Dictionary) -> 
 
 static func _find_texture(folder: String, name_or_file: String) -> Texture2D:
 	var wanted_file := name_or_file.get_file()
-	var wanted_base := wanted_file.get_basename()
 	var wanted_extension := wanted_file.get_extension().to_lower()
+	var wanted_base := wanted_file.get_basename() if wanted_extension in IMAGE_EXTENSIONS else wanted_file
 	for actual_name in DirAccess.get_files_at(folder):
 		if actual_name.get_basename().to_lower() != wanted_base.to_lower():
 			continue
@@ -97,7 +97,10 @@ static func _find_texture(folder: String, name_or_file: String) -> Texture2D:
 
 
 static func _find_sibling_path(folder: String, base_name: String, extensions: Array) -> String:
-	var wanted_base := base_name.get_file().get_basename().to_lower()
+	# Callers pass an already extension-free audio base. It may legitimately end
+	# in a decimal timestamp (for example "line0.112"), so applying
+	# get_basename() a second time would incorrectly turn it into "line0".
+	var wanted_base := base_name.get_file().to_lower()
 	for actual_name in DirAccess.get_files_at(folder):
 		if actual_name.get_basename().to_lower() == wanted_base and actual_name.get_extension().to_lower() in extensions:
 			return folder.path_join(actual_name)
