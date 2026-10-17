@@ -2,6 +2,7 @@ extends RefCounted
 
 const AUDIO_EXTENSIONS := ["wav", "mp3", "ogg"]
 const IMAGE_EXTENSIONS := ["png", "jpg", "jpeg", "webp"]
+const CONFIG_EXTENSIONS := ["ini", "cfg", "txt"]
 const RESERVED_AUDIO_PREFIXES := ["_ignore", "_backing_track", "_dubrecord_freestyle"]
 
 
@@ -9,17 +10,15 @@ static func load_from_folder(folder: String) -> Dictionary:
 	var root := folder.trim_suffix("/") + "/"
 	if not DirAccess.dir_exists_absolute(root):
 		return {"ok": false, "error": "Pack folder is missing."}
-	var video_path := root.path_join("dub_video.ogv")
-	if not FileAccess.file_exists(video_path):
+	var video_path := _find_sibling_path(root, "dub_video", ["ogv"])
+	if video_path.is_empty():
 		return {"ok": false, "error": "Pack has no dub_video.ogv file."}
 	var video := VideoStreamTheora.new()
 	video.file = video_path
 	var backing: AudioStream = null
-	for extension in AUDIO_EXTENSIONS:
-		var candidate := root.path_join("_backing_track.%s" % extension)
-		if FileAccess.file_exists(candidate):
-			backing = load_audio(candidate)
-			break
+	var backing_path := _find_sibling_path(root, "_backing_track", AUDIO_EXTENSIONS)
+	if not backing_path.is_empty():
+		backing = load_audio(backing_path)
 	var lines: Dictionary = {}
 	_collect_lines(root, root, lines)
 	if lines.is_empty():
@@ -41,12 +40,12 @@ static func _collect_lines(root: String, folder: String, output: Dictionary) -> 
 		if reserved:
 			continue
 		var file_path := folder.path_join(file_name)
+		var config_path := _find_sibling_path(folder, base, CONFIG_EXTENSIONS)
+		if config_path.is_empty():
+			continue
 		var config := ConfigFile.new()
-		var config_path := file_path.get_basename() + ".ini"
 		if config.load(config_path) != OK:
-			var cfg_path := file_path.get_basename() + ".cfg"
-			if config.load(cfg_path) != OK:
-				continue
+			continue
 		var raw_timestamps = config.get_value("data", "dub_timestamps", [])
 		var timestamps := PackedFloat32Array(raw_timestamps)
 		if timestamps.is_empty():
@@ -54,8 +53,8 @@ static func _collect_lines(root: String, folder: String, output: Dictionary) -> 
 		var characters := PackedStringArray(config.get_value("data", "dub_characters", []))
 		var caption := str(config.get_value("data", "caption", ""))
 		if caption.is_empty():
-			var text_path := file_path.get_basename() + ".txt"
-			if FileAccess.file_exists(text_path):
+			var text_path := _find_sibling_path(folder, base, ["txt"])
+			if not text_path.is_empty():
 				caption = FileAccess.get_file_as_string(text_path).strip_edges()
 		var texture: Texture2D = null
 		var image_name := str(config.get_value("data", "image", ""))
@@ -83,15 +82,26 @@ static func _collect_lines(root: String, folder: String, output: Dictionary) -> 
 
 
 static func _find_texture(folder: String, name_or_file: String) -> Texture2D:
-	if name_or_file.contains("."):
-		var exact := folder.path_join(name_or_file)
-		if FileAccess.file_exists(exact):
-			return _load_texture(exact)
-	for extension in IMAGE_EXTENSIONS:
-		var candidate := folder.path_join("%s.%s" % [name_or_file, extension])
-		if FileAccess.file_exists(candidate):
-			return _load_texture(candidate)
+	var wanted_file := name_or_file.get_file()
+	var wanted_base := wanted_file.get_basename()
+	var wanted_extension := wanted_file.get_extension().to_lower()
+	for actual_name in DirAccess.get_files_at(folder):
+		if actual_name.get_basename().to_lower() != wanted_base.to_lower():
+			continue
+		var actual_extension := actual_name.get_extension().to_lower()
+		if actual_extension not in IMAGE_EXTENSIONS:
+			continue
+		if wanted_extension.is_empty() or actual_extension == wanted_extension:
+			return _load_texture(folder.path_join(actual_name))
 	return null
+
+
+static func _find_sibling_path(folder: String, base_name: String, extensions: Array) -> String:
+	var wanted_base := base_name.get_file().get_basename().to_lower()
+	for actual_name in DirAccess.get_files_at(folder):
+		if actual_name.get_basename().to_lower() == wanted_base and actual_name.get_extension().to_lower() in extensions:
+			return folder.path_join(actual_name)
+	return ""
 
 
 static func _load_texture(path: String) -> Texture2D:
