@@ -2,6 +2,18 @@
 
 Small room-based WebSocket relay for private 2–4 player Choicer Voicer games.
 
+## Browser guest
+
+Friends can join a desktop host's multiplayer Video Dub without installing the
+game at <https://jollymarcman.github.io/choicer-voicer-relay/>. The browser
+client contains only the guest dubbing flow: room-code joining, confirmed pack
+download, character selection, line recording, progress, and synchronized
+playback. Hosting and single-player modes remain in the Windows game.
+
+The deployable build is in `docs/`; its Godot 4.4.1 source is in
+`web-client-source/`. Packs are transferred from the active desktop host and
+stored in that browser. Packs larger than 512 MiB are intentionally rejected.
+
 ## Render
 
 Deploy the repository as a free Render Blueprint using `render.yaml`. The health

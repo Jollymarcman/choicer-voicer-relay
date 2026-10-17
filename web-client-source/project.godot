@@ -1,0 +1,34 @@
+; Choicer Voicer browser guest. This project intentionally contains only the
+; multiplayer dub client, not the desktop game's single-player/host features.
+config_version=5
+
+[application]
+
+config/name="Choicer Voicer Online Guest"
+config/version="0.1.0"
+run/main_scene="res://main.tscn"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="YeahMaybe/ChoicerVoicerWebGuest"
+
+[audio]
+
+driver/enable_input=true
+general/default_playback_type.web=1
+
+[autoload]
+
+RelayClient="*res://relay_client.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
