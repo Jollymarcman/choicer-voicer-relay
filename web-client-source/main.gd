@@ -735,6 +735,7 @@ func _on_playback_go() -> void:
 		child.queue_free()
 	playback_video.stream = current_pack.video
 	playback_backing.stream = current_pack.backing
+	_set_playback_latency_mode(playback_backing, playback_backing.stream)
 	for file_name in current_pack.lines:
 		var line: Dictionary = current_pack.lines[file_name]
 		var stream: AudioStream = playback_recordings.get(file_name, line.stream)
@@ -744,6 +745,7 @@ func _on_playback_go() -> void:
 			timer.wait_time = maxf(0.01, float(timestamp))
 			var player := AudioStreamPlayer.new()
 			player.stream = stream
+			_set_playback_latency_mode(player, stream)
 			timer.timeout.connect(player.play)
 			timer.add_child(player)
 			playback_audio_nodes.add_child(timer)
@@ -757,6 +759,17 @@ func _on_playback_go() -> void:
 	playback_backing.stop()
 	playback_overlay.hide()
 	set_status("Playback finished. Waiting for the host...")
+
+
+func _set_playback_latency_mode(player: AudioStreamPlayer, stream: AudioStream) -> void:
+	# Web's Stream playback can add substantial output delay in single-threaded exports.
+	# Recorded lines are WAV/static streams, so Sample mode gives them lower-latency playback.
+	# Keep streaming formats (for example MP3 backing tracks) on Stream because they cannot
+	# be sampled by Godot.
+	if stream and stream.can_be_sampled():
+		player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE
+	else:
+		player.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 
 
 func _valid_relative_path(path: String) -> bool:
