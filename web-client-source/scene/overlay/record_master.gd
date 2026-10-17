@@ -15,6 +15,9 @@ signal replay_finished
 @onready var countdown_blip: AudioStreamPlayer = %CountdownBlip
 @onready var countdown_final: AudioStreamPlayer = %CountdownFinal
 @onready var backlights: HBoxContainer = %Backlights
+@onready var waveform_container: MarginContainer = $VBoxContainer/BotBar/VBoxContainer/WaveformContainer
+@onready var waveform_play_control: ColorRect = %WaveformPlayControl
+@onready var record_light: MarginContainer = %RecLight
 
 
 @export var backlight_main: Array[TextureRect]
@@ -33,6 +36,7 @@ var stream_playing: bool = false
 var vclip_filename: String
 
 var backlight_color: Color
+var _mobile_layout := false
 
 
 func _ready():
@@ -121,6 +125,31 @@ func fix_stretch() -> void :
 		waveform_mantle.pivot_offset.x = waveform_mantle.custom_minimum_size.x / 2.0
 		waveform_mantle.scale = Vector2(5.6 / vclip_seconds_length, 1.0)
 	else: waveform_mantle.scale = Vector2.ONE
+
+
+func set_mobile_layout(enabled: bool, viewport_width: float) -> void:
+	_mobile_layout = enabled
+	if enabled:
+		buffer.custom_minimum_size.y = clampf(viewport_width * 0.28, 88.0, 150.0)
+		waveform_container.custom_minimum_size.y = 122
+		waveform_play_control.custom_minimum_size.x = maxf(100.0, viewport_width - 72.0)
+		waveform_play_control.custom_minimum_size.y = 116
+		$VBoxContainer/BotBar/VBoxContainer/WaveformContainer/WaveformPlayControl/MarginContainer2/HBoxContainer/LeftMargin.custom_minimum_size.x = 18
+		$VBoxContainer/BotBar/VBoxContainer/WaveformContainer/WaveformPlayControl/MarginContainer2/HBoxContainer/RightMargin2.custom_minimum_size.x = 18
+		for light in backlights.get_children():
+			light.visible = light == record_light
+		record_light.custom_minimum_size = Vector2(clampf(viewport_width - 48.0, 160.0, 220.0), 96.0)
+		backlights.add_theme_constant_override("separation", 0)
+	else:
+		buffer.custom_minimum_size.y = 324
+		waveform_container.custom_minimum_size.y = 163
+		waveform_play_control.custom_minimum_size = Vector2(164, 155)
+		$VBoxContainer/BotBar/VBoxContainer/WaveformContainer/WaveformPlayControl/MarginContainer2/HBoxContainer/LeftMargin.custom_minimum_size.x = 72
+		$VBoxContainer/BotBar/VBoxContainer/WaveformContainer/WaveformPlayControl/MarginContainer2/HBoxContainer/RightMargin2.custom_minimum_size.x = 72
+		for light in backlights.get_children():
+			light.visible = true
+		record_light.custom_minimum_size = Vector2(240, 128)
+		backlights.add_theme_constant_override("separation", 26)
 
 
 func PlayVclip(): await wave_control.PlayVclip()

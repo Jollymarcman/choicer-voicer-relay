@@ -21,6 +21,20 @@ var leave_button: Button
 var status_label: Label
 var roster_label: Label
 var lobby_panel: PanelContainer
+var lobby_margin: MarginContainer
+var lobby_rows: VBoxContainer
+var lobby_scroll: ScrollContainer
+var lobby_title: Label
+var lobby_subtitle: Label
+var lobby_note: Label
+var name_row: HBoxContainer
+var room_row: HBoxContainer
+var mic_device_row: HBoxContainer
+var mic_action_row: HBoxContainer
+var mic_gain_row: HBoxContainer
+var mic_meter_row: HBoxContainer
+var mic_gain_label: Label
+var join_leave_row: HBoxContainer
 var mic_device_option: OptionButton
 var mic_setup_button: Button
 var mic_monitor_button: Button
@@ -46,6 +60,12 @@ var playback_video: VideoStreamPlayer
 var playback_backing: AudioStreamPlayer
 var playback_title: Label
 var playback_audio_nodes: Node
+var record_content: BoxContainer
+var record_screen_frame: PanelContainer
+var record_controls_panel: PanelContainer
+var record_title: Label
+var record_instruction: Label
+var mobile_layout := false
 
 var current_pack: Dictionary = {}
 var current_pack_path := ""
@@ -72,6 +92,8 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(TEMP_ROOT)
 	_load_registry()
 	_build_interface()
+	get_viewport().size_changed.connect(_apply_responsive_layout)
+	_apply_responsive_layout()
 	_connect_relay_signals()
 	set_status("Enter the host's room code to join a Video Dub.")
 
@@ -106,38 +128,46 @@ func _build_interface() -> void:
 	background.add_child(rings)
 
 	lobby_panel = PanelContainer.new()
-	lobby_panel.set_anchors_preset(Control.PRESET_CENTER)
+	lobby_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	lobby_panel.position = Vector2(-410, -325)
 	lobby_panel.custom_minimum_size = Vector2(820, 650)
 	lobby_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.29, 0.31, 0.31, 0.9), Color(0.45, 0.92, 1.0), 3))
 	add_child(lobby_panel)
-	var margin := MarginContainer.new()
+	lobby_margin = MarginContainer.new()
 	for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
-		margin.add_theme_constant_override(side, 24)
-	lobby_panel.add_child(margin)
-	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation", 14)
-	margin.add_child(rows)
-	var title := Label.new()
-	title.text = "CHOICER VOICER — ONLINE GUEST"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 34)
-	title.add_theme_color_override("font_color", Color("b9f1ff"))
-	rows.add_child(title)
-	var subtitle := Label.new()
-	subtitle.text = "Join your friend's Video Dub directly from the browser"
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rows.add_child(subtitle)
-	name_input = _input_row(rows, "Display name", "Player", false)
-	room_input = _input_row(rows, "Room code", "ABCDEFGH", true)
-	_build_microphone_settings(rows)
-	var buttons := HBoxContainer.new()
-	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
-	buttons.add_theme_constant_override("separation", 12)
-	rows.add_child(buttons)
+		lobby_margin.add_theme_constant_override(side, 24)
+	lobby_panel.add_child(lobby_margin)
+	lobby_scroll = ScrollContainer.new()
+	lobby_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	lobby_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lobby_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	lobby_margin.add_child(lobby_scroll)
+	lobby_rows = VBoxContainer.new()
+	lobby_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lobby_rows.add_theme_constant_override("separation", 14)
+	lobby_scroll.add_child(lobby_rows)
+	lobby_title = Label.new()
+	lobby_title.text = "CHOICER VOICER — ONLINE GUEST"
+	lobby_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lobby_title.add_theme_font_size_override("font_size", 34)
+	lobby_title.add_theme_color_override("font_color", Color("b9f1ff"))
+	lobby_rows.add_child(lobby_title)
+	lobby_subtitle = Label.new()
+	lobby_subtitle.text = "Join your friend's Video Dub directly from the browser"
+	lobby_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lobby_rows.add_child(lobby_subtitle)
+	name_input = _input_row(lobby_rows, "Display name", "Player", false)
+	name_row = name_input.get_parent() as HBoxContainer
+	room_input = _input_row(lobby_rows, "Room code", "ABCDEFGH", true)
+	room_row = room_input.get_parent() as HBoxContainer
+	_build_microphone_settings(lobby_rows)
+	join_leave_row = HBoxContainer.new()
+	join_leave_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	join_leave_row.add_theme_constant_override("separation", 12)
+	lobby_rows.add_child(join_leave_row)
 	join_button = _make_button("Join Video Dub")
 	join_button.pressed.connect(_join)
-	buttons.add_child(join_button)
+	join_leave_row.add_child(join_button)
 	leave_button = _make_button("Leave")
 	leave_button.disabled = true
 	leave_button.pressed.connect(func() -> void:
@@ -145,32 +175,36 @@ func _build_interface() -> void:
 		if bridge:
 			bridge.close()
 		RelayClient.leave())
-	buttons.add_child(leave_button)
+	join_leave_row.add_child(leave_button)
 	status_label = Label.new()
 	status_label.custom_minimum_size.y = 76
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_label.add_theme_font_size_override("font_size", 18)
-	rows.add_child(status_label)
+	lobby_rows.add_child(status_label)
 	roster_label = Label.new()
 	roster_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	roster_label.add_theme_font_size_override("font_size", 18)
-	rows.add_child(roster_label)
-	var note := Label.new()
-	note.text = "Allow microphone access when asked. Headphones are recommended.\nThe host controls the scene; recording and playback will appear automatically."
-	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.add_theme_color_override("font_color", Color("c2e9ef"))
-	rows.add_child(note)
+	lobby_rows.add_child(roster_label)
+	lobby_note = Label.new()
+	lobby_note.text = "Allow microphone access when asked. Headphones are recommended.\nThe host controls the scene; recording and playback will appear automatically."
+	lobby_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lobby_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lobby_note.add_theme_color_override("font_color", Color("c2e9ef"))
+	lobby_rows.add_child(lobby_note)
 	_build_record_overlay()
 	_build_playback_overlay()
 
 
 func _build_microphone_settings(parent: VBoxContainer) -> void:
+	var device_section := VBoxContainer.new()
+	device_section.add_theme_constant_override("separation", 6)
+	parent.add_child(device_section)
 	var device_row := HBoxContainer.new()
 	device_row.add_theme_constant_override("separation", 10)
-	parent.add_child(device_row)
+	device_section.add_child(device_row)
+	mic_device_row = device_row
 	var device_label := Label.new()
 	device_label.text = "Microphone"
 	device_label.custom_minimum_size.x = 145
@@ -185,24 +219,32 @@ func _build_microphone_settings(parent: VBoxContainer) -> void:
 	mic_device_option.set_item_metadata(0, "")
 	mic_device_option.item_selected.connect(_on_mic_device_selected)
 	device_row.add_child(mic_device_option)
+	mic_action_row = HBoxContainer.new()
+	mic_action_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mic_action_row.add_theme_constant_override("separation", 8)
+	device_row.add_child(mic_action_row)
 	mic_monitor_button = _make_button("Listen to mic")
 	mic_monitor_button.custom_minimum_size.x = 132
 	mic_monitor_button.disabled = true
 	mic_monitor_button.pressed.connect(_on_mic_monitor_pressed)
-	device_row.add_child(mic_monitor_button)
+	mic_action_row.add_child(mic_monitor_button)
 	mic_setup_button = _make_button("Enable / Refresh")
 	mic_setup_button.custom_minimum_size.x = 158
 	mic_setup_button.pressed.connect(_request_microphone_settings)
-	device_row.add_child(mic_setup_button)
+	mic_action_row.add_child(mic_setup_button)
 
+	var gain_section := VBoxContainer.new()
+	gain_section.add_theme_constant_override("separation", 6)
+	parent.add_child(gain_section)
 	var gain_row := HBoxContainer.new()
 	gain_row.add_theme_constant_override("separation", 10)
-	parent.add_child(gain_row)
-	var gain_label := Label.new()
-	gain_label.text = "Mic gain"
-	gain_label.custom_minimum_size.x = 145
-	gain_label.add_theme_font_size_override("font_size", 18)
-	gain_row.add_child(gain_label)
+	gain_section.add_child(gain_row)
+	mic_gain_row = gain_row
+	mic_gain_label = Label.new()
+	mic_gain_label.text = "Mic gain"
+	mic_gain_label.custom_minimum_size.x = 145
+	mic_gain_label.add_theme_font_size_override("font_size", 18)
+	gain_row.add_child(mic_gain_label)
 	mic_gain_slider = HSlider.new()
 	mic_gain_slider.min_value = 0.0
 	mic_gain_slider.max_value = 2.0
@@ -217,18 +259,28 @@ func _build_microphone_settings(parent: VBoxContainer) -> void:
 	mic_gain_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	mic_gain_value_label.text = "100%"
 	gain_row.add_child(mic_gain_value_label)
+	var meter_row := HBoxContainer.new()
+	mic_meter_row = meter_row
+	meter_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	meter_row.add_theme_constant_override("separation", 10)
+	gain_row.add_child(meter_row)
+	var meter_label := Label.new()
+	meter_label.text = "Input level"
+	meter_label.custom_minimum_size.x = 110
+	meter_row.add_child(meter_label)
 	mic_level_bar = ProgressBar.new()
-	mic_level_bar.custom_minimum_size = Vector2(135, 24)
+	mic_level_bar.custom_minimum_size = Vector2(0, 26)
+	mic_level_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mic_level_bar.min_value = 0
 	mic_level_bar.max_value = 100
 	mic_level_bar.show_percentage = false
-	gain_row.add_child(mic_level_bar)
+	meter_row.add_child(mic_level_bar)
 	mic_status_label = Label.new()
 	mic_status_label.text = "Enable the mic, then speak to test the meter. Use headphones to listen and avoid feedback."
 	mic_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mic_status_label.add_theme_font_size_override("font_size", 14)
 	mic_status_label.add_theme_color_override("font_color", Color("c2e9ef"))
-	parent.add_child(mic_status_label)
+	gain_section.add_child(mic_status_label)
 
 
 func _request_microphone_settings() -> void:
@@ -397,6 +449,7 @@ func _build_record_overlay() -> void:
 	rows.add_theme_constant_override("separation", 10)
 	margin.add_child(rows)
 	var title := Label.new()
+	record_title = title
 	title.text = "VIDEO DUB — YOUR RECORDING"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_override("font", WAUKEGAN_LDO)
@@ -404,10 +457,12 @@ func _build_record_overlay() -> void:
 	title.add_theme_color_override("font_color", Color(0.72, 0.95, 1.0))
 	rows.add_child(title)
 	var content := HBoxContainer.new()
+	record_content = content
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 16)
 	rows.add_child(content)
 	var screen_frame := PanelContainer.new()
+	record_screen_frame = screen_frame
 	screen_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	screen_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	screen_frame.add_theme_stylebox_override("panel", _wii_style_box(Color(0.035, 0.045, 0.05), Color(0.14, 0.18, 0.19), 5))
@@ -425,6 +480,7 @@ func _build_record_overlay() -> void:
 	record_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	aspect.add_child(record_preview)
 	var controls_panel := PanelContainer.new()
+	record_controls_panel = controls_panel
 	controls_panel.custom_minimum_size = Vector2(285, 0)
 	controls_panel.add_theme_stylebox_override("panel", _wii_style_box(Color(0.78, 0.81, 0.81, 0.98), Color(0.36, 0.55, 0.58)))
 	content.add_child(controls_panel)
@@ -449,12 +505,12 @@ func _build_record_overlay() -> void:
 	record_character.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	record_character.add_theme_color_override("font_color", Color(0.08, 0.3, 0.34))
 	controls.add_child(record_character)
-	var instruction := Label.new()
-	instruction.text = "Press Record when you are ready. The host's prompt and countdown settings will be used automatically."
-	instruction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	instruction.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	instruction.add_theme_color_override("font_color", Color(0.14, 0.18, 0.19))
-	controls.add_child(instruction)
+	record_instruction = Label.new()
+	record_instruction.text = "Press Record when you are ready. The host's prompt and countdown settings will be used automatically."
+	record_instruction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	record_instruction.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	record_instruction.add_theme_color_override("font_color", Color(0.14, 0.18, 0.19))
+	controls.add_child(record_instruction)
 	record_button = Button.new()
 	record_button.text = "●  RECORD"
 	record_button.custom_minimum_size = Vector2(240, 72)
@@ -533,6 +589,147 @@ func _build_playback_overlay() -> void:
 	playback_audio_nodes = Node.new()
 	playback_overlay.add_child(playback_audio_nodes)
 	playback_overlay.hide()
+
+
+func _apply_responsive_layout() -> void:
+	if not is_node_ready() or not lobby_panel:
+		return
+	var screen_size := Vector2(get_window().size)
+	var viewport_size := get_viewport_rect().size
+	var use_mobile := screen_size.x < 720.0 or screen_size.y < 560.0
+	if use_mobile == mobile_layout:
+		return
+	mobile_layout = use_mobile
+	if mobile_layout:
+		mic_action_row.reparent(mic_device_row.get_parent())
+		mic_device_row.get_parent().move_child(mic_action_row, 1)
+		mic_meter_row.reparent(mic_gain_row.get_parent())
+		mic_gain_row.get_parent().move_child(mic_meter_row, 1)
+		lobby_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		lobby_panel.offset_left = 8
+		lobby_panel.offset_top = 8
+		lobby_panel.offset_right = -8
+		lobby_panel.offset_bottom = -8
+		lobby_panel.position = Vector2.ZERO
+		lobby_panel.custom_minimum_size = Vector2.ZERO
+		for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+			lobby_margin.add_theme_constant_override(side, 12)
+		lobby_title.add_theme_font_size_override("font_size", 23)
+		lobby_subtitle.add_theme_font_size_override("font_size", 16)
+		lobby_note.add_theme_font_size_override("font_size", 15)
+		status_label.add_theme_font_size_override("font_size", 16)
+		roster_label.add_theme_font_size_override("font_size", 16)
+		for row in [name_row, room_row, mic_device_row, mic_gain_row]:
+			for child in row.get_children():
+				if child is Label:
+					child.custom_minimum_size.x = 96
+					child.add_theme_font_size_override("font_size", 16)
+		name_input.add_theme_font_size_override("font_size", 18)
+		room_input.add_theme_font_size_override("font_size", 18)
+		mic_device_option.custom_minimum_size.y = 50
+		for button in [mic_monitor_button, mic_setup_button, join_button, leave_button]:
+			button.custom_minimum_size = Vector2(0, 54)
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			button.add_theme_font_size_override("font_size", 16)
+		mic_gain_slider.custom_minimum_size.y = 42
+		mic_level_bar.custom_minimum_size.y = 30
+		mic_status_label.add_theme_font_size_override("font_size", 13)
+		join_leave_row.add_theme_constant_override("separation", 8)
+		_migrate_record_content(true)
+		var panel := record_overlay.get_child(0) as PanelContainer
+		panel.offset_left = 8
+		panel.offset_top = 8
+		panel.offset_right = -8
+		panel.offset_bottom = -8
+		var record_margin := panel.get_child(0) as MarginContainer
+		for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+			record_margin.add_theme_constant_override(side, 8)
+		record_title.add_theme_font_size_override("font_size", 22)
+		record_progress.add_theme_font_size_override("font_size", 18)
+		record_character.add_theme_font_size_override("font_size", 16)
+		record_instruction.add_theme_font_size_override("font_size", 14)
+		record_caption.add_theme_font_size_override("font_size", 18)
+		record_caption.custom_minimum_size.y = 42
+		record_screen_frame.custom_minimum_size.y = 160
+		record_controls_panel.custom_minimum_size = Vector2(0, 230)
+		record_button.custom_minimum_size = Vector2(0, 62)
+		record_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	else:
+		mic_action_row.reparent(mic_device_row)
+		mic_meter_row.reparent(mic_gain_row)
+		lobby_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+		lobby_panel.position = Vector2(-410, -325)
+		lobby_panel.custom_minimum_size = Vector2(820, 650)
+		for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+			lobby_margin.add_theme_constant_override(side, 24)
+		lobby_title.add_theme_font_size_override("font_size", 34)
+		lobby_subtitle.add_theme_font_size_override("font_size", 18)
+		lobby_note.add_theme_font_size_override("font_size", 18)
+		status_label.add_theme_font_size_override("font_size", 18)
+		roster_label.add_theme_font_size_override("font_size", 18)
+		for row in [name_row, room_row, mic_device_row, mic_gain_row]:
+			for child in row.get_children():
+				if child is Label:
+					child.custom_minimum_size.x = 145
+					child.add_theme_font_size_override("font_size", 20 if row in [name_row, room_row, mic_device_row] else 18)
+		name_input.add_theme_font_size_override("font_size", 20)
+		room_input.add_theme_font_size_override("font_size", 20)
+		mic_device_option.custom_minimum_size.y = 42
+		for button in [mic_monitor_button, mic_setup_button]:
+			button.custom_minimum_size = Vector2(132 if button == mic_monitor_button else 158, 48)
+			button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			button.add_theme_font_size_override("font_size", 19)
+		for button in [join_button, leave_button]:
+			button.custom_minimum_size = Vector2(180, 48)
+			button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			button.add_theme_font_size_override("font_size", 19)
+		mic_gain_slider.custom_minimum_size.y = 28
+		mic_level_bar.custom_minimum_size = Vector2(0, 24)
+		mic_status_label.add_theme_font_size_override("font_size", 14)
+		join_leave_row.add_theme_constant_override("separation", 12)
+		_migrate_record_content(false)
+		var panel := record_overlay.get_child(0) as PanelContainer
+		panel.offset_left = 28
+		panel.offset_top = 22
+		panel.offset_right = -28
+		panel.offset_bottom = -22
+		var record_margin := panel.get_child(0) as MarginContainer
+		for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+			record_margin.add_theme_constant_override(side, 18 if side in ["margin_left", "margin_right"] else 14)
+		record_title.add_theme_font_size_override("font_size", 30)
+		record_progress.add_theme_font_size_override("font_size", 20)
+		record_character.add_theme_font_size_override("font_size", 18)
+		record_instruction.add_theme_font_size_override("font_size", 18)
+		record_caption.add_theme_font_size_override("font_size", 21)
+		record_caption.custom_minimum_size.y = 70
+		record_screen_frame.custom_minimum_size.y = 0
+		record_controls_panel.custom_minimum_size = Vector2(285, 0)
+		record_button.custom_minimum_size = Vector2(240, 72)
+		record_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	if record_master and record_master.has_method("set_mobile_layout"):
+		record_master.set_mobile_layout(mobile_layout, viewport_size.x)
+
+
+func _migrate_record_content(vertical: bool) -> void:
+	if not record_content or not record_content.get_parent():
+		return
+	if vertical == (record_content is VBoxContainer):
+		return
+	var old := record_content
+	var parent := old.get_parent()
+	var index := old.get_index()
+	var replacement: BoxContainer = VBoxContainer.new() if vertical else HBoxContainer.new()
+	replacement.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	replacement.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	replacement.add_theme_constant_override("separation", 10 if vertical else 16)
+	parent.remove_child(old)
+	parent.add_child(replacement)
+	parent.move_child(replacement, index)
+	for child in old.get_children():
+		old.remove_child(child)
+		replacement.add_child(child)
+	old.queue_free()
+	record_content = replacement
 
 
 func _connect_relay_signals() -> void:
@@ -648,7 +845,8 @@ func _handle_pack_offer(message: Dictionary) -> void:
 	dialog.ok_button_text = "Download & Install"
 	dialog.cancel_button_text = "Decline"
 	add_child(dialog)
-	dialog.popup_centered(Vector2i(600, 260))
+	var dialog_width := mini(600, int(get_viewport_rect().size.x - 24.0))
+	dialog.popup_centered(Vector2i(maxi(300, dialog_width), 260 if not mobile_layout else 300))
 	dialog.confirmed.connect(func() -> void:
 		dialog.queue_free()
 		set_status("Downloading %s from the host..." % pack_name)
@@ -883,7 +1081,8 @@ func _on_character_choice(request_id: int, options: Array, mystery: bool) -> voi
 		dialog.add_child(selector)
 	dialog.get_cancel_button().hide()
 	add_child(dialog)
-	dialog.popup_centered(Vector2i(520, 230))
+	var dialog_width := mini(520, int(get_viewport_rect().size.x - 24.0))
+	dialog.popup_centered(Vector2i(maxi(300, dialog_width), 230 if not mobile_layout else 280))
 	await dialog.confirmed
 	var choice := str(options[0]) if mystery else selector.get_item_text(selector.selected)
 	dialog.queue_free()
