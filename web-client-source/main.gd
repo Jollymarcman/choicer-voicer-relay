@@ -572,6 +572,9 @@ func _build_playback_overlay() -> void:
 	playback_video.expand = true
 	playback_video.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	playback_video.bus = "Master"
+	# Dub playback should use the video as picture only. The source clip's
+	# embedded audio otherwise overlaps the recorded replacement lines.
+	playback_video.volume_db = -80.0
 	playback_overlay.add_child(playback_video)
 	playback_title = Label.new()
 	playback_title.set_anchors_preset(Control.PRESET_TOP_WIDE)
