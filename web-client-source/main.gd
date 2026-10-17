@@ -1,7 +1,9 @@
 extends Control
 
 const DubPack = preload("res://dub_pack.gd")
-const BrowserWaveform = preload("res://browser_waveform.gd")
+const DubRecordingTiming = preload("res://common/niche/dub_recording_timing.gd")
+const RECORD_MASTER_SCENE = preload("res://scene/overlay/record_master.tscn")
+const WAUKEGAN_LDO = preload("res://graphic/font/Waukegan LDO.ttf")
 const VIDEO_DUB_SESSION := 5
 const PACK_ROOT := "user://packs_voice/"
 const TEMP_ROOT := "user://.temp/online_pack_sync/"
@@ -24,10 +26,8 @@ var record_preview: TextureRect
 var record_caption: Label
 var record_character: Label
 var record_progress: Label
-var record_phase: Label
-var record_time: Label
-var record_waveform: BrowserWaveform
 var record_button: Button
+var record_master: Control
 var _record_pressed := false
 var _queue_cancelled := false
 
@@ -36,12 +36,6 @@ var playback_video: VideoStreamPlayer
 var playback_backing: AudioStreamPlayer
 var playback_title: Label
 var playback_audio_nodes: Node
-
-var microphone_player: AudioStreamPlayer
-var prompt_player: AudioStreamPlayer
-var record_effect: AudioEffectRecord
-var prompt_capture: AudioEffectCapture
-var microphone_capture: AudioEffectCapture
 
 var current_pack: Dictionary = {}
 var current_pack_path := ""
@@ -67,7 +61,6 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(TEMP_ROOT)
 	_load_registry()
 	_build_interface()
-	_setup_audio()
 	_connect_relay_signals()
 	set_status("Enter the host's room code to join a Video Dub.")
 
@@ -194,77 +187,135 @@ func _panel_style(fill: Color, border: Color, width: int) -> StyleBoxFlat:
 
 func _build_record_overlay() -> void:
 	record_overlay = ColorRect.new()
-	record_overlay.color = Color(0.19, 0.21, 0.21, 0.99)
+	record_overlay.color = Color(0.28, 0.3, 0.3, 0.98)
 	record_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	record_overlay.z_index = 20
+	record_overlay.z_index = 55
 	add_child(record_overlay)
+	var panel := PanelContainer.new()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.offset_left = 28
+	panel.offset_top = 22
+	panel.offset_right = -28
+	panel.offset_bottom = -22
+	panel.add_theme_stylebox_override("panel", _wii_style_box(Color(0.68, 0.7, 0.7, 0.99), Color(0.4, 0.9, 1.0), 3))
+	record_overlay.add_child(panel)
 	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 34)
-	margin.add_theme_constant_override("margin_top", 26)
-	margin.add_theme_constant_override("margin_right", 34)
-	margin.add_theme_constant_override("margin_bottom", 26)
-	record_overlay.add_child(margin)
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_bottom", 14)
+	panel.add_child(margin)
 	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation", 12)
+	rows.add_theme_constant_override("separation", 10)
 	margin.add_child(rows)
 	var title := Label.new()
 	title.text = "VIDEO DUB — YOUR RECORDING"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 32)
-	title.add_theme_color_override("font_color", Color("b9f1ff"))
+	title.add_theme_font_override("font", WAUKEGAN_LDO)
+	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_color_override("font_color", Color(0.72, 0.95, 1.0))
 	rows.add_child(title)
+	var content := HBoxContainer.new()
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_theme_constant_override("separation", 16)
+	rows.add_child(content)
+	var screen_frame := PanelContainer.new()
+	screen_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	screen_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	screen_frame.add_theme_stylebox_override("panel", _wii_style_box(Color(0.035, 0.045, 0.05), Color(0.14, 0.18, 0.19), 5))
+	content.add_child(screen_frame)
+	var aspect := AspectRatioContainer.new()
+	aspect.ratio = 16.0 / 9.0
+	aspect.stretch_mode = AspectRatioContainer.STRETCH_FIT
+	aspect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	aspect.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	screen_frame.add_child(aspect)
 	record_preview = TextureRect.new()
-	record_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	record_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	record_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	rows.add_child(record_preview)
-	record_phase = Label.new()
-	record_phase.text = "READY"
-	record_phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	record_phase.add_theme_font_size_override("font_size", 20)
-	record_phase.add_theme_color_override("font_color", Color("62e7ff"))
-	rows.add_child(record_phase)
-	record_waveform = BrowserWaveform.new()
-	record_waveform.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rows.add_child(record_waveform)
-	var waveform_key := HBoxContainer.new()
-	waveform_key.alignment = BoxContainer.ALIGNMENT_CENTER
-	waveform_key.add_theme_constant_override("separation", 30)
-	rows.add_child(waveform_key)
-	var original_key := Label.new()
-	original_key.text = "■ Original"
-	original_key.add_theme_color_override("font_color", Color("62e7ff"))
-	waveform_key.add_child(original_key)
-	var voice_key := Label.new()
-	voice_key.text = "■ Your voice"
-	voice_key.add_theme_color_override("font_color", Color("ffb24a"))
-	waveform_key.add_child(voice_key)
-	record_time = Label.new()
-	record_time.text = "0:00.0 / 0:00.0"
-	record_time.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	record_time.add_theme_font_size_override("font_size", 18)
-	rows.add_child(record_time)
+	record_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	record_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	aspect.add_child(record_preview)
+	var controls_panel := PanelContainer.new()
+	controls_panel.custom_minimum_size = Vector2(285, 0)
+	controls_panel.add_theme_stylebox_override("panel", _wii_style_box(Color(0.78, 0.81, 0.81, 0.98), Color(0.36, 0.55, 0.58)))
+	content.add_child(controls_panel)
+	var controls_margin := MarginContainer.new()
+	controls_margin.add_theme_constant_override("margin_left", 12)
+	controls_margin.add_theme_constant_override("margin_top", 12)
+	controls_margin.add_theme_constant_override("margin_right", 12)
+	controls_margin.add_theme_constant_override("margin_bottom", 12)
+	controls_panel.add_child(controls_margin)
+	var controls := VBoxContainer.new()
+	controls.alignment = BoxContainer.ALIGNMENT_CENTER
+	controls.add_theme_constant_override("separation", 12)
+	controls_margin.add_child(controls)
 	record_progress = Label.new()
+	record_progress.text = "Preparing your lines..."
 	record_progress.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	record_progress.add_theme_font_size_override("font_size", 24)
-	rows.add_child(record_progress)
+	record_progress.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	record_progress.add_theme_font_size_override("font_size", 20)
+	controls.add_child(record_progress)
 	record_character = Label.new()
 	record_character.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	record_character.add_theme_color_override("font_color", Color("aeefff"))
-	rows.add_child(record_character)
-	record_caption = Label.new()
-	record_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	record_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	record_caption.add_theme_font_size_override("font_size", 22)
-	rows.add_child(record_caption)
-	record_button = _make_button("●  RECORD")
-	record_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	record_character.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	record_character.add_theme_color_override("font_color", Color(0.08, 0.3, 0.34))
+	controls.add_child(record_character)
+	var instruction := Label.new()
+	instruction.text = "Press Record when you are ready. The host's prompt and countdown settings will be used automatically."
+	instruction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	instruction.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	instruction.add_theme_color_override("font_color", Color(0.14, 0.18, 0.19))
+	controls.add_child(instruction)
+	record_button = Button.new()
+	record_button.text = "●  RECORD"
+	record_button.custom_minimum_size = Vector2(240, 72)
+	_style_wii_button(record_button)
+	record_button.add_theme_font_size_override("font_size", 25)
 	record_button.pressed.connect(func() -> void:
 		record_button.disabled = true
+		record_button.text = "Starting..."
 		_record_pressed = true)
-	rows.add_child(record_button)
+	controls.add_child(record_button)
+	record_caption = Label.new()
+	record_caption.custom_minimum_size.y = 70
+	record_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	record_caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	record_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	record_caption.add_theme_font_size_override("font_size", 21)
+	record_caption.add_theme_color_override("font_color", Color(0.06, 0.1, 0.11))
+	rows.add_child(record_caption)
+	record_master = RECORD_MASTER_SCENE.instantiate()
+	record_master.z_index = 65
+	add_child(record_master)
+	record_master.hide()
 	record_overlay.hide()
+
+
+func _wii_style_box(fill: Color, border: Color, width: int = 2) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = border
+	style.set_border_width_all(width)
+	style.set_corner_radius_all(12)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 7
+	style.content_margin_bottom = 7
+	return style
+
+
+func _style_wii_button(button: BaseButton) -> void:
+	button.add_theme_stylebox_override("normal", _wii_style_box(Color(0.78, 0.83, 0.84, 0.96), Color(0.35, 0.52, 0.55)))
+	button.add_theme_stylebox_override("hover", _wii_style_box(Color(0.91, 0.98, 1.0, 1.0), Color(0.35, 0.88, 1.0), 3))
+	button.add_theme_stylebox_override("pressed", _wii_style_box(Color(0.53, 0.86, 0.93, 1.0), Color.WHITE, 3))
+	button.add_theme_stylebox_override("focus", _wii_style_box(Color.TRANSPARENT, Color(0.75, 0.96, 1.0), 3))
+	button.add_theme_color_override("font_color", Color(0.08, 0.12, 0.13))
+	button.add_theme_color_override("font_hover_color", Color(0.02, 0.12, 0.15))
+	button.add_theme_color_override("font_pressed_color", Color(0.02, 0.12, 0.15))
+	button.add_theme_font_override("font", WAUKEGAN_LDO)
+	button.add_theme_font_size_override("font_size", 18)
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 
 func _build_playback_overlay() -> void:
@@ -296,21 +347,6 @@ func _build_playback_overlay() -> void:
 	playback_overlay.hide()
 
 
-func _setup_audio() -> void:
-	microphone_player = AudioStreamPlayer.new()
-	microphone_player.stream = AudioStreamMicrophone.new()
-	microphone_player.bus = "Record"
-	add_child(microphone_player)
-	prompt_player = AudioStreamPlayer.new()
-	prompt_player.bus = "PromptAnalysis"
-	add_child(prompt_player)
-	var bus_index := AudioServer.get_bus_index("Record")
-	record_effect = AudioServer.get_bus_effect(bus_index, 0) as AudioEffectRecord
-	microphone_capture = AudioServer.get_bus_effect(bus_index, 1) as AudioEffectCapture
-	var prompt_bus_index := AudioServer.get_bus_index("PromptAnalysis")
-	prompt_capture = AudioServer.get_bus_effect(prompt_bus_index, 0) as AudioEffectCapture
-
-
 func _connect_relay_signals() -> void:
 	RelayClient.status_changed.connect(set_status)
 	RelayClient.roster_changed.connect(_update_roster)
@@ -330,8 +366,7 @@ func _connect_relay_signals() -> void:
 
 func _join() -> void:
 	# The click is also the browser user gesture that permits audio/microphone use.
-	if not microphone_player.playing:
-		microphone_player.play()
+	record_master.microphone_on()
 	RelayClient.join(room_input.text, name_input.text)
 	join_button.disabled = true
 	leave_button.disabled = false
@@ -541,9 +576,9 @@ func _on_recording_queue(queue_id: int, clips: Array, settings: Dictionary) -> v
 			break
 		RelayClient.send_queue_progress(queue_id, index, "Recording line %d" % (index + 1))
 		var override := RelayClient.wav_from_payload(info.get("prompt_wav", {}))
-		var wav := await _capture_line(override if override else line.stream, settings)
-		if wav and not _queue_cancelled:
-			RelayClient.send_queue_recording(queue_id, index, {"wav": RelayClient.wav_to_payload(wav), "samples": {}, "waveform_png": PackedByteArray()})
+		var result := await _capture_line(override if override else line.stream, settings)
+		if not result.is_empty() and not _queue_cancelled:
+			RelayClient.send_queue_recording(queue_id, index, result)
 	if not _queue_cancelled:
 		RelayClient.finish_queue(queue_id)
 	record_overlay.hide()
@@ -556,108 +591,49 @@ func _show_record_line(line: Dictionary, index: int, total: int, settings: Dicti
 	record_character.text = "Character: %s" % ", ".join(line.get("characters", PackedStringArray()))
 	record_caption.text = str(line.get("caption", "")) if bool(settings.get("show_captions", true)) else "Captions disabled by the host"
 	record_button.text = "●  RECORD"
-	record_phase.text = "READY — press Record when you are ready"
-	record_phase.add_theme_color_override("font_color", Color("62e7ff"))
-	record_time.text = "0:00.0 / %s" % _format_clock((line.get("stream") as AudioStream).get_length() if line.get("stream") else 0.0)
-	record_waveform.reset_all()
 	record_overlay.show()
 
 
-func _capture_line(stream: AudioStream, settings: Dictionary) -> AudioStreamWAV:
-	if not stream or not record_effect:
-		return null
-	if not microphone_player.playing:
-		microphone_player.play()
-	record_waveform.reset_all()
-	# Match the desktop guest flow: hear the source once, build its waveform,
-	# then overlay the player's live microphone waveform during the performance.
-	if not bool(settings.get("mute_prompts", false)):
-		record_progress.text = "Listen to the original, then match its timing"
-		record_phase.text = "LISTEN — original line"
-		record_phase.add_theme_color_override("font_color", Color("62e7ff"))
-		await _play_prompt_visual(stream, false)
-	var countdown := maxf(0.0, float(settings.get("countdown_time", 2.0)))
-	while countdown > 0.0:
-		record_progress.text = "Recording in %.1f..." % countdown
-		record_phase.text = "GET READY"
-		record_phase.add_theme_color_override("font_color", Color("ffd36a"))
-		record_waveform.set_progress(0.0)
-		var step := minf(0.25, countdown)
-		await get_tree().create_timer(step).timeout
-		countdown -= step
-	record_progress.text = "RECORDING — perform the line now!"
-	record_phase.text = "● RECORDING — orange is your voice"
-	record_phase.add_theme_color_override("font_color", Color("ffb24a"))
-	record_waveform.reset_voice()
-	prompt_player.volume_db = -80.0 if bool(settings.get("mute_prompts", false)) else 0.0
-	await _play_prompt_visual(stream, true)
-	await get_tree().create_timer(0.25).timeout
-	if record_effect.is_recording_active():
-		record_effect.set_recording_active(false)
-	var wav := record_effect.get_recording()
-	prompt_player.volume_db = 0.0
-	record_phase.text = "SENT — moving to the next line"
-	record_phase.add_theme_color_override("font_color", Color("a8ffb3"))
-	return wav
-
-
-func _play_prompt_visual(stream: AudioStream, capture_microphone: bool) -> void:
-	var duration := maxf(0.01, stream.get_length())
-	prompt_player.stream = stream
-	if prompt_capture:
-		prompt_capture.clear_buffer()
-	if microphone_capture:
-		microphone_capture.clear_buffer()
-	prompt_player.play()
-	var recording_started := not capture_microphone
-	while prompt_player.playing:
-		var position := minf(prompt_player.get_playback_position(), duration)
-		var visual_progress := position / duration
-		if capture_microphone and not recording_started and position >= 0.125:
-			record_effect.set_recording_active(true)
-			recording_started = true
-		_capture_waveform_peak(prompt_capture, visual_progress, false)
-		if capture_microphone and recording_started:
-			_capture_waveform_peak(microphone_capture, visual_progress, true)
-		record_waveform.set_progress(visual_progress)
-		record_time.text = "%s / %s" % [_format_clock(position), _format_clock(duration)]
-		await get_tree().process_frame
-	if capture_microphone and not recording_started:
-		record_effect.set_recording_active(true)
-	record_waveform.set_progress(1.0)
-	record_time.text = "%s / %s" % [_format_clock(duration), _format_clock(duration)]
-
-
-func _capture_waveform_peak(capture: AudioEffectCapture, at_progress: float, voice: bool) -> void:
-	if not capture:
-		return
-	var available := capture.get_frames_available()
-	if available <= 0:
-		return
-	var frames := capture.get_buffer(available)
-	var peak := 0.0
-	# Sampling every eighth frame keeps the browser light while retaining the
-	# shape and timing of speech accurately enough for the dubbing display.
-	for index in range(0, frames.size(), 8):
-		var frame: Vector2 = frames[index]
-		peak = maxf(peak, maxf(absf(frame.x), absf(frame.y)))
-	if voice:
-		record_waveform.add_voice_peak(at_progress, peak)
+func _capture_line(stream: AudioStream, settings: Dictionary) -> Dictionary:
+	if not stream or not record_master:
+		return {}
+	# This is the same RecordMaster flow used by an EXE guest in online_lobby.gd.
+	Profile.show_captions = bool(settings.get("show_captions", true))
+	Profile.countdown_time = float(settings.get("countdown_time", 2.0))
+	Profile.debug_countdown_type = int(settings.get("countdown_type", 0))
+	Profile.caption_wait_time = float(settings.get("caption_wait_time", 0.5))
+	Profile.mic_crust_sample_rate_on = false
+	record_master.show()
+	var vclip := VclipResource.new()
+	vclip.audio = stream
+	vclip.hint = record_caption.text if Profile.show_captions else ""
+	vclip.directory = "Online parallel recording"
+	if bool(settings.get("mute_prompts", false)):
+		record_master.SetVclipAudio(stream)
 	else:
-		record_waveform.add_source_peak(at_progress, peak)
-
-
-func _format_clock(seconds: float) -> String:
-	var safe_seconds := maxf(0.0, seconds)
-	return "%d:%04.1f" % [floori(safe_seconds / 60.0), fmod(safe_seconds, 60.0)]
+		await record_master.NewVclipPlay(vclip)
+	record_master.microphone_on()
+	var samples: Dictionary = await record_master.PlmicRecord()
+	var wav: AudioStreamWAV = record_master.wave_control.pecho
+	if wav:
+		wav = DubRecordingTiming.align_remote_take(wav)
+	if bool(settings.get("reduce_sample_rate", false)) and wav:
+		wav = GMCrust.reduce_recording_sample_rate(wav)
+	var waveform_png := PackedByteArray()
+	var waveform_rect: Rect2 = record_master.wave_control.waveform.get_global_rect()
+	if waveform_rect.size.x >= 1.0 and waveform_rect.size.y >= 1.0:
+		waveform_png = record_master.WaveformImage().save_png_to_buffer()
+	record_master.StopBoth()
+	record_master.hide()
+	return {"wav": RelayClient.wav_to_payload(wav), "samples": samples, "waveform_png": waveform_png}
 
 
 func _on_queue_cancelled(_queue_id: int, reason: String) -> void:
 	_queue_cancelled = true
 	_record_pressed = true
-	if record_effect and record_effect.is_recording_active():
-		record_effect.set_recording_active(false)
-	prompt_player.stop()
+	if record_master:
+		record_master.StopBoth()
+		record_master.hide()
 	record_overlay.hide()
 	set_status("The host skipped your remaining lines: %s" % reason)
 
@@ -673,8 +649,8 @@ func _on_legacy_recording(request_id: int, payload: Dictionary) -> void:
 	record_button.disabled = false
 	while not _record_pressed:
 		await get_tree().process_frame
-	var wav := await _capture_line(stream, {"countdown_time": 2.0})
-	RelayClient.send_recording(request_id, {"wav": RelayClient.wav_to_payload(wav), "samples": {}, "waveform_png": PackedByteArray()})
+	var result := await _capture_line(stream, {"countdown_time": 2.0})
+	RelayClient.send_recording(request_id, result)
 	record_overlay.hide()
 
 

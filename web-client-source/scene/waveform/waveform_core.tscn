@@ -1,0 +1,58 @@
+[gd_scene load_steps=5 format=3 uid="uid://covbxi1eutq67"]
+
+[ext_resource type="Script" uid="uid://becyykskjj8wo" path="res://scene/waveform/waveform_core.gd" id="1_5kb2u"]
+[ext_resource type="Script" uid="uid://b24p58whwbfno" path="res://scene/waveform/wf_vclip_data_drawer.gd" id="2_i41h6"]
+[ext_resource type="Script" uid="uid://b4ykdkvqcy1ah" path="res://scene/waveform/wf_plmic_data_drawer.gd" id="3_1jwkx"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_8t14m"]
+blend_mode = 1
+light_mode = 1
+
+[node name="WaveformCore" type="ColorRect"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0)
+script = ExtResource("1_5kb2u")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+show_behind_parent = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 1)
+
+[node name="VclipDrawer" type="Control" parent="."]
+show_behind_parent = true
+material = SubResource("CanvasItemMaterial_8t14m")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_i41h6")
+
+[node name="PlmicDrawer" type="Control" parent="."]
+show_behind_parent = true
+material = SubResource("CanvasItemMaterial_8t14m")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_1jwkx")
+
+[node name="PitchDrawer" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2

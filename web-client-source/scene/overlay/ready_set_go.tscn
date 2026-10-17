@@ -1,0 +1,61 @@
+[gd_scene load_steps=4 format=3 uid="uid://bfx01wxcrmo5g"]
+
+[ext_resource type="Script" uid="uid://bs5d1y1wbltai" path="res://scene/overlay/ready_set_go.gd" id="1_cvfgm"]
+[ext_resource type="AudioStream" uid="uid://w3a0ihoadr15" path="res://audio/sfx/audio_countdown.wav" id="2_kws7d"]
+[ext_resource type="AudioStream" uid="uid://uhxuvv50k6tr" path="res://audio/sfx/audio_countdown_final.wav" id="3_vxb6r"]
+
+[node name="ReadySetGo" type="Control"]
+z_index = 1
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_cvfgm")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="buffer" type="Control" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="HBar" type="ColorRect" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+size_flags_stretch_ratio = 0.0
+color = Color(0.0235294, 0.0235294, 0.0235294, 0.811765)
+
+[node name="buffer2" type="Control" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 32
+theme_override_font_sizes/font_size = 192
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CountdownPre" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2_kws7d")
+volume_db = -12.0
+bus = &"SfxMain"
+
+[node name="CountdownFinal" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("3_vxb6r")
+volume_db = -12.0
+bus = &"SfxMain"

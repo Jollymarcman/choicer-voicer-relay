@@ -1,0 +1,356 @@
+[gd_scene load_steps=15 format=3 uid="uid://cm1k4k7josvdf"]
+
+[ext_resource type="Shader" uid="uid://djd3lf6pxe0yy" path="res://graphic/shader/glossy_solid.gdshader" id="1_382xn"]
+[ext_resource type="Script" uid="uid://bg1n424mbtlq7" path="res://scene/overlay/record_master.gd" id="1_e3upe"]
+[ext_resource type="Texture2D" uid="uid://cmd7wo7jmdgcw" path="res://graphic/image/waverecord_mic.png" id="2_7alfy"]
+[ext_resource type="FontFile" uid="uid://cntue2fs2dixc" path="res://graphic/font/DuruSans-Regular.ttf" id="2_usb3a"]
+[ext_resource type="AudioStream" uid="uid://uhxuvv50k6tr" path="res://audio/sfx/audio_countdown_final.wav" id="3_d8oj0"]
+[ext_resource type="Texture2D" uid="uid://bbtfva4ky8t3p" path="res://graphic/image/waverecord_roundedwhite.png" id="4_4ofvc"]
+[ext_resource type="PackedScene" uid="uid://u43nbjn1cq5d" path="res://scene/waveform/waveform_mantle.tscn" id="4_ocdsb"]
+[ext_resource type="AudioStream" uid="uid://cgo2qvo82wehc" path="res://audio/sfx/countdown_blip.ogg" id="4_oyx3y"]
+
+[sub_resource type="Gradient" id="Gradient_7emd6"]
+interpolation_mode = 2
+offsets = PackedFloat32Array(0, 0.0294118)
+colors = PackedColorArray(0.544974, 0.544974, 0.544974, 1, 1, 1, 1, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_cv6hp"]
+gradient = SubResource("Gradient_7emd6")
+fill_to = Vector2(0, 1)
+
+[sub_resource type="Gradient" id="Gradient_qrhws"]
+offsets = PackedFloat32Array(0, 0.12, 0.141, 0.302, 0.332, 0.364, 0.489)
+colors = PackedColorArray(0.784314, 0.784314, 0.784314, 0, 0.439216, 0.439216, 0.439216, 1, 0.976471, 0.976471, 0.976471, 1, 0.909804, 0.952941, 0.964706, 1, 0.490196, 0.803922, 0.890196, 1, 0.384314, 0.631373, 0.701961, 1, 0.490196, 0.803922, 0.890196, 0.384314)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_s7h7b"]
+gradient = SubResource("Gradient_qrhws")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_u5e2i"]
+shader = ExtResource("1_382xn")
+shader_parameter/palette = SubResource("GradientTexture1D_s7h7b")
+shader_parameter/node_size = Vector2(148, 136)
+shader_parameter/x_corner_margin = 0.4
+shader_parameter/x_shift = 0.0
+shader_parameter/x_scale = 1.0
+shader_parameter/y_corner_margin = 0.4
+shader_parameter/y_shift = 0.0
+shader_parameter/y_scale = 1.0
+shader_parameter/dont_merge_black = true
+shader_parameter/alpha_value = 1.0
+shader_parameter/use_center_detail = true
+shader_parameter/center_color = Color(1, 1, 1, 0.4)
+shader_parameter/center_falloff = 1.0
+shader_parameter/center_x_corner_margin = 0.25
+shader_parameter/center_x_shift = 0.0
+shader_parameter/center_x_scale = 0.885
+shader_parameter/center_y_corner_margin = 0.25
+shader_parameter/center_y_shift = 0.325
+shader_parameter/center_y_scale = 0.165
+shader_parameter/use_reflection = true
+shader_parameter/reflection_color = Color(1, 1, 1, 0.631373)
+shader_parameter/reflection_falloff = 0.198
+shader_parameter/reflection_x_corner_margin = 0.25
+shader_parameter/reflection_x_shift = 0.0
+shader_parameter/reflection_x_scale = 0.78
+shader_parameter/reflection_y_corner_margin = 0.5
+shader_parameter/reflection_y_shift = -0.255
+shader_parameter/reflection_y_scale = 0.275
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_p0q6m"]
+shader = ExtResource("1_382xn")
+shader_parameter/palette = SubResource("GradientTexture1D_s7h7b")
+shader_parameter/node_size = Vector2(256, 136)
+shader_parameter/x_corner_margin = 0.4
+shader_parameter/x_shift = 0.0
+shader_parameter/x_scale = 1.0
+shader_parameter/y_corner_margin = 0.4
+shader_parameter/y_shift = 0.0
+shader_parameter/y_scale = 1.0
+shader_parameter/dont_merge_black = true
+shader_parameter/alpha_value = 1.0
+shader_parameter/use_center_detail = true
+shader_parameter/center_color = Color(1, 1, 1, 0.4)
+shader_parameter/center_falloff = 1.0
+shader_parameter/center_x_corner_margin = 0.25
+shader_parameter/center_x_shift = 0.0
+shader_parameter/center_x_scale = 0.885
+shader_parameter/center_y_corner_margin = 0.25
+shader_parameter/center_y_shift = 0.325
+shader_parameter/center_y_scale = 0.165
+shader_parameter/use_reflection = true
+shader_parameter/reflection_color = Color(1, 1, 1, 0.631373)
+shader_parameter/reflection_falloff = 0.198
+shader_parameter/reflection_x_corner_margin = 0.25
+shader_parameter/reflection_x_shift = 0.0
+shader_parameter/reflection_x_scale = 0.78
+shader_parameter/reflection_y_corner_margin = 0.5
+shader_parameter/reflection_y_shift = -0.255
+shader_parameter/reflection_y_scale = 0.275
+
+[node name="RecordMaster" type="Control" node_paths=PackedStringArray("backlight_main", "backlight_innermost", "backlight_meddistance", "backlight_furthest")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_e3upe")
+backlight_main = [NodePath("VBoxContainer/BotBar/VBoxContainer/Backlights/RecLight/MainLightBackColor")]
+backlight_innermost = [NodePath("VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightL3/BackColor"), NodePath("VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightR1/BackColor")]
+backlight_meddistance = [NodePath("VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightL2/BackColor"), NodePath("VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightR2/BackColor")]
+backlight_furthest = [NodePath("VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightL1/BackColor"), NodePath("VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightR3/BackColor")]
+
+[node name="Audio" type="Node" parent="."]
+
+[node name="CountdownBlip" type="AudioStreamPlayer" parent="Audio"]
+unique_name_in_owner = true
+stream = ExtResource("4_oyx3y")
+volume_db = -12.0
+bus = &"SfxMain"
+
+[node name="CountdownFinal" type="AudioStreamPlayer" parent="Audio"]
+unique_name_in_owner = true
+stream = ExtResource("3_d8oj0")
+volume_db = -12.0
+bus = &"SfxMain"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="Buffer" type="Control" parent="VBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 324)
+layout_mode = 2
+
+[node name="BotBar" type="TextureRect" parent="VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+texture = SubResource("GradientTexture2D_cv6hp")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/BotBar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="Control" type="Control" parent="VBoxContainer/BotBar/VBoxContainer"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+
+[node name="LblHint" type="Label" parent="VBoxContainer/BotBar/VBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(1152, 24)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 1
+theme_override_fonts/font = ExtResource("2_usb3a")
+horizontal_alignment = 1
+autowrap_mode = 2
+text_overrun_behavior = 2
+
+[node name="WaveformContainer" type="MarginContainer" parent="VBoxContainer/BotBar/VBoxContainer"]
+custom_minimum_size = Vector2(0, 163)
+layout_mode = 2
+size_flags_stretch_ratio = 1.25
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_bottom = 4
+
+[node name="WaveformPlayControl" parent="VBoxContainer/BotBar/VBoxContainer/WaveformContainer" instance=ExtResource("4_ocdsb")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(164, 155)
+layout_mode = 2
+size_flags_vertical = 8
+
+[node name="Backlights" type="HBoxContainer" parent="VBoxContainer/BotBar/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 26
+alignment = 1
+
+[node name="MiniLightL1" type="MarginContainer" parent="VBoxContainer/BotBar/VBoxContainer/Backlights"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(55, 55)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_bottom = 8
+metadata/_edit_group_ = true
+
+[node name="BackColor" type="TextureRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightL1"]
+modulate = Color(0, 0, 0, 1)
+show_behind_parent = true
+layout_mode = 2
+texture = ExtResource("4_4ofvc")
+expand_mode = 1
+
+[node name="RecIndicator" type="ColorRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightL1"]
+material = SubResource("ShaderMaterial_u5e2i")
+layout_mode = 2
+
+[node name="MiniLightL2" type="MarginContainer" parent="VBoxContainer/BotBar/VBoxContainer/Backlights"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(55, 55)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_bottom = 8
+metadata/_edit_group_ = true
+
+[node name="BackColor" type="TextureRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightL2"]
+modulate = Color(0, 0, 0, 1)
+show_behind_parent = true
+layout_mode = 2
+texture = ExtResource("4_4ofvc")
+expand_mode = 1
+
+[node name="RecIndicator" type="ColorRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightL2"]
+material = SubResource("ShaderMaterial_u5e2i")
+layout_mode = 2
+
+[node name="MiniLightL3" type="MarginContainer" parent="VBoxContainer/BotBar/VBoxContainer/Backlights"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(55, 55)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_bottom = 8
+metadata/_edit_group_ = true
+
+[node name="BackColor" type="TextureRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightL3"]
+modulate = Color(0, 0, 0, 1)
+show_behind_parent = true
+layout_mode = 2
+texture = ExtResource("4_4ofvc")
+expand_mode = 1
+
+[node name="RecIndicator" type="ColorRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightL3"]
+material = SubResource("ShaderMaterial_u5e2i")
+layout_mode = 2
+
+[node name="RecLight" type="MarginContainer" parent="VBoxContainer/BotBar/VBoxContainer/Backlights"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 128)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_bottom = 8
+
+[node name="MainLightBackColor" type="TextureRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/RecLight"]
+unique_name_in_owner = true
+modulate = Color(0, 0, 0, 1)
+show_behind_parent = true
+layout_mode = 2
+texture = ExtResource("4_4ofvc")
+expand_mode = 1
+
+[node name="RecIndicator" type="ColorRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/RecLight"]
+unique_name_in_owner = true
+material = SubResource("ShaderMaterial_p0q6m")
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/RecLight/RecIndicator"]
+show_behind_parent = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_bottom = 18
+
+[node name="TextureRect" type="TextureRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/RecLight/RecIndicator/MarginContainer"]
+layout_mode = 2
+texture = ExtResource("2_7alfy")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MiniLightR1" type="MarginContainer" parent="VBoxContainer/BotBar/VBoxContainer/Backlights"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(55, 55)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_bottom = 8
+metadata/_edit_group_ = true
+
+[node name="BackColor" type="TextureRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightR1"]
+modulate = Color(0, 0, 0, 1)
+show_behind_parent = true
+layout_mode = 2
+texture = ExtResource("4_4ofvc")
+expand_mode = 1
+
+[node name="RecIndicator" type="ColorRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightR1"]
+material = SubResource("ShaderMaterial_u5e2i")
+layout_mode = 2
+
+[node name="MiniLightR2" type="MarginContainer" parent="VBoxContainer/BotBar/VBoxContainer/Backlights"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(55, 55)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_bottom = 8
+metadata/_edit_group_ = true
+
+[node name="BackColor" type="TextureRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightR2"]
+modulate = Color(0, 0, 0, 1)
+show_behind_parent = true
+layout_mode = 2
+texture = ExtResource("4_4ofvc")
+expand_mode = 1
+
+[node name="RecIndicator" type="ColorRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightR2"]
+material = SubResource("ShaderMaterial_u5e2i")
+layout_mode = 2
+
+[node name="MiniLightR3" type="MarginContainer" parent="VBoxContainer/BotBar/VBoxContainer/Backlights"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(55, 55)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_bottom = 8
+metadata/_edit_group_ = true
+
+[node name="BackColor" type="TextureRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightR3"]
+modulate = Color(0, 0, 0, 1)
+show_behind_parent = true
+layout_mode = 2
+texture = ExtResource("4_4ofvc")
+expand_mode = 1
+
+[node name="RecIndicator" type="ColorRect" parent="VBoxContainer/BotBar/VBoxContainer/Backlights/MiniLightR3"]
+material = SubResource("ShaderMaterial_u5e2i")
+layout_mode = 2
+
+[node name="ReadySetGoCapsule" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+metadata/_edit_lock_ = true
+
+[connection signal="replay_finished" from="VBoxContainer/BotBar/VBoxContainer/WaveformContainer/WaveformPlayControl" to="." method="_on_waveform_play_control_replay_finished"]

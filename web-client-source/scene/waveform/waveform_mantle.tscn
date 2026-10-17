@@ -1,0 +1,134 @@
+[gd_scene load_steps=13 format=3 uid="uid://u43nbjn1cq5d"]
+
+[ext_resource type="Shader" uid="uid://djd3lf6pxe0yy" path="res://graphic/shader/glossy_solid.gdshader" id="1_asdxv"]
+[ext_resource type="Script" uid="uid://dlnnp5sj2ah05" path="res://scene/waveform/waveform_mantle.gd" id="2_sg02l"]
+[ext_resource type="PackedScene" uid="uid://covbxi1eutq67" path="res://scene/waveform/waveform_core.tscn" id="3_bx750"]
+[ext_resource type="AudioStream" uid="uid://xuufqdfcsrea" path="res://audio/sfx/drumroll_shorter.wav" id="4_7ab0m"]
+
+[sub_resource type="Gradient" id="Gradient_0yuu3"]
+offsets = PackedFloat32Array(0.0229008, 0.0801527, 0.29771)
+colors = PackedColorArray(0, 0, 0, 0, 0.276262, 0.847634, 0.999999, 1, 0.501961, 0.898039, 1, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_orm0g"]
+gradient = SubResource("Gradient_0yuu3")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fvy3q"]
+shader = ExtResource("1_asdxv")
+shader_parameter/palette = SubResource("GradientTexture1D_orm0g")
+shader_parameter/node_size = Vector2(1, 1)
+shader_parameter/x_corner_margin = 0.1
+shader_parameter/x_shift = 0.0
+shader_parameter/x_scale = 1.0
+shader_parameter/y_corner_margin = 0.1
+shader_parameter/y_shift = 0.0
+shader_parameter/y_scale = 1.0
+shader_parameter/dont_merge_black = true
+shader_parameter/alpha_value = 1.0
+shader_parameter/use_center_detail = false
+shader_parameter/center_color = Color(1, 1, 1, 1)
+shader_parameter/center_falloff = 1.0
+shader_parameter/center_x_corner_margin = 0.25
+shader_parameter/center_x_shift = 0.0
+shader_parameter/center_x_scale = 1.0
+shader_parameter/center_y_corner_margin = 0.25
+shader_parameter/center_y_shift = 0.0
+shader_parameter/center_y_scale = 1.0
+shader_parameter/use_reflection = false
+shader_parameter/reflection_color = Color(1, 1, 1, 1)
+shader_parameter/reflection_falloff = 1.0
+shader_parameter/reflection_x_corner_margin = 0.25
+shader_parameter/reflection_x_shift = 0.0
+shader_parameter/reflection_x_scale = 1.0
+shader_parameter/reflection_y_corner_margin = 0.25
+shader_parameter/reflection_y_shift = 0.0
+shader_parameter/reflection_y_scale = 1.0
+
+[sub_resource type="Gradient" id="Gradient_4kqr2"]
+interpolation_mode = 1
+offsets = PackedFloat32Array(0, 0.495, 0.505)
+colors = PackedColorArray(0.196078, 0.196078, 0.196078, 1, 1, 1, 1, 1, 0.196078, 0.196078, 0.196078, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_5bq10"]
+gradient = SubResource("Gradient_4kqr2")
+height = 128
+fill_to = Vector2(0, 1)
+
+[sub_resource type="Gradient" id="Gradient_bvsej"]
+colors = PackedColorArray(0, 0, 0, 0, 0.8, 0, 0, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_ncx3j"]
+gradient = SubResource("Gradient_bvsej")
+width = 12
+
+[sub_resource type="AudioStreamMicrophone" id="AudioStreamMicrophone_x00vr"]
+
+[node name="WaveformMantle" type="ColorRect"]
+material = SubResource("ShaderMaterial_fvy3q")
+custom_minimum_size = Vector2(164, 158)
+size_flags_horizontal = 4
+color = Color(0.247059, 0.247059, 0.247059, 1)
+script = ExtResource("2_sg02l")
+
+[node name="MarginContainer2" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer2"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="LeftMargin" type="TextureRect" parent="MarginContainer2/HBoxContainer"]
+custom_minimum_size = Vector2(72, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+texture = SubResource("GradientTexture2D_5bq10")
+
+[node name="WaveformDataDrawerDual" parent="MarginContainer2/HBoxContainer" instance=ExtResource("3_bx750")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RightMargin2" type="TextureRect" parent="MarginContainer2/HBoxContainer"]
+custom_minimum_size = Vector2(72, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+texture = SubResource("GradientTexture2D_5bq10")
+
+[node name="Control" type="Control" parent="MarginContainer2"]
+layout_mode = 2
+
+[node name="Playbar" type="TextureRect" parent="MarginContainer2/Control"]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 12.0
+grow_vertical = 2
+size_flags_horizontal = 0
+texture = SubResource("GradientTexture1D_ncx3j")
+
+[node name="Audio" type="Node" parent="."]
+
+[node name="Vclip" type="AudioStreamPlayer" parent="Audio"]
+stream = ExtResource("4_7ab0m")
+bus = &"Vclip"
+
+[node name="Vclip2" type="AudioStreamPlayer" parent="Audio"]
+stream = ExtResource("4_7ab0m")
+bus = &"Vclip"
+
+[node name="Plmic" type="AudioStreamPlayer" parent="Audio"]
+stream = SubResource("AudioStreamMicrophone_x00vr")
+bus = &"Plmic"
+
+[node name="Pecho" type="AudioStreamPlayer" parent="Audio"]
+bus = &"Pecho"
+
+[connection signal="finished" from="Audio/Vclip" to="." method="_play_finished"]
+[connection signal="finished" from="Audio/Pecho" to="." method="_play_finished"]

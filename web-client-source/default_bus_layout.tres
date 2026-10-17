@@ -1,34 +1,322 @@
-[gd_resource type="AudioBusLayout" load_steps=4 format=3]
+[gd_resource type="AudioBusLayout" load_steps=29 format=3 uid="uid://ccki3r3h7cm7p"]
 
-[sub_resource type="AudioEffectRecord" id="AudioEffectRecord_web"]
-resource_name = "Browser microphone recorder"
-format = 1
+[sub_resource type="AudioEffectHardLimiter" id="AudioEffectHardLimiter_j3pel"]
+resource_name = "HardLimiter"
 
-[sub_resource type="AudioEffectCapture" id="AudioEffectCapture_mic"]
-resource_name = "Browser microphone waveform"
-buffer_length = 0.2
+[sub_resource type="AudioEffectStereoEnhance" id="AudioEffectStereoEnhance_52eev"]
+resource_name = "StereoEnhance"
+pan_pullout = 0.0
 
-[sub_resource type="AudioEffectCapture" id="AudioEffectCapture_prompt"]
-resource_name = "Browser prompt waveform"
-buffer_length = 0.2
+[sub_resource type="AudioEffectPitchShift" id="AudioEffectPitchShift_lf1rq"]
+resource_name = "PitchShift"
+pitch_scale = 1.098
+
+[sub_resource type="AudioEffectRecord" id="AudioEffectRecord_8oaxe"]
+resource_name = "Record"
+
+[sub_resource type="AudioEffectRecord" id="AudioEffectRecord_dbuof"]
+resource_name = "Record"
+
+[sub_resource type="AudioEffectSpectrumAnalyzer" id="AudioEffectSpectrumAnalyzer_plly5"]
+resource_name = "SpectrumAnalyzer"
+buffer_length = 1.0
+fft_size = 0
+
+[sub_resource type="AudioEffectSpectrumAnalyzer" id="AudioEffectSpectrumAnalyzer_gfquq"]
+resource_name = "SpectrumAnalyzer"
+buffer_length = 1.0
+fft_size = 0
+
+[sub_resource type="AudioEffectLowPassFilter" id="AudioEffectLowPassFilter_j3pel"]
+resource_name = "LowPassFilter"
+cutoff_hz = 3500.0
+
+[sub_resource type="AudioEffectEQ21" id="AudioEffectEQ21_j3pel"]
+resource_name = "EQ21"
+band_db/22_hz = -60.0
+band_db/32_hz = -60.0
+band_db/44_hz = -43.0
+band_db/63_hz = -20.0
+band_db/90_hz = -14.0
+band_db/2000_hz = -8.5
+band_db/2800_hz = -17.0
+band_db/4000_hz = -35.5
+band_db/5600_hz = -60.0
+band_db/8000_hz = -60.0
+band_db/11000_hz = -60.0
+band_db/16000_hz = -60.0
+band_db/22000_hz = -60.0
+
+[sub_resource type="AudioEffectReverb" id="AudioEffectReverb_j3pel"]
+resource_name = "Reverb"
+room_size = 0.05
+damping = 1.0
+spread = 0.5
+wet = 0.02
+
+[sub_resource type="AudioEffectHighPassFilter" id="AudioEffectHighPassFilter_j3pel"]
+resource_name = "HighPassFilter"
+cutoff_hz = 500.0
+
+[sub_resource type="AudioEffectDelay" id="AudioEffectDelay_j3pel"]
+resource_name = "Delay"
+tap1_delay_ms = 300.0
+tap2_delay_ms = 600.0
+feedback_active = true
+feedback_delay_ms = 380.0
+feedback_level_db = -9.0
+
+[sub_resource type="AudioEffectReverb" id="AudioEffectReverb_g28q7"]
+resource_name = "Reverb"
+spread = 0.32
+wet = 0.1
+
+[sub_resource type="AudioEffectSpectrumAnalyzer" id="AudioEffectSpectrumAnalyzer_ms2vf"]
+resource_name = "SpectrumAnalyzer"
+buffer_length = 0.1
+fft_size = 0
+
+[sub_resource type="AudioEffectStereoEnhance" id="AudioEffectStereoEnhance_j3pel"]
+resource_name = "StereoEnhance"
+pan_pullout = 0.0
+
+[sub_resource type="AudioEffectDistortion" id="AudioEffectDistortion_j3pel"]
+resource_name = "Distortion"
+mode = 2
+pre_gain = -3.0
+drive = 0.95
+
+[sub_resource type="AudioEffectPanner" id="AudioEffectPanner_vlckh"]
+resource_name = "Panner"
+pan = -1.0
+
+[sub_resource type="AudioEffectAmplify" id="AudioEffectAmplify_q5ffo"]
+resource_name = "Amplify"
+
+[sub_resource type="AudioEffectCompressor" id="AudioEffectCompressor_t2fd1"]
+resource_name = "Compressor"
+gain = 9.0
+
+[sub_resource type="AudioEffectHighPassFilter" id="AudioEffectHighPassFilter_o1w78"]
+resource_name = "HighPassFilter"
+cutoff_hz = 1000.0
+
+[sub_resource type="AudioEffectLowPassFilter" id="AudioEffectLowPassFilter_hkty1"]
+resource_name = "LowPassFilter"
+cutoff_hz = 16000.0
+
+[sub_resource type="AudioEffectDistortion" id="AudioEffectDistortion_yru14"]
+resource_name = "Distortion"
+mode = 2
+post_gain = 6.0
+
+[sub_resource type="AudioEffectLimiter" id="AudioEffectLimiter_a4ctj"]
+resource_name = "Limiter"
+ceiling_db = -14.6
+threshold_db = -5.0
+
+[sub_resource type="AudioEffectPitchShift" id="AudioEffectPitchShift_a0fva"]
+resource_name = "PitchShift"
+fft_size = 0
+
+[sub_resource type="AudioEffectRecord" id="AudioEffectRecord_5w3j4"]
+resource_name = "Record"
+
+[sub_resource type="AudioEffectSpectrumAnalyzer" id="AudioEffectSpectrumAnalyzer_lt371"]
+resource_name = "SpectrumAnalyzer"
+buffer_length = 1.0
+fft_size = 0
+
+[sub_resource type="AudioEffectSpectrumAnalyzer" id="AudioEffectSpectrumAnalyzer_wvo7x"]
+resource_name = "SpectrumAnalyzer"
+buffer_length = 1.0
+fft_size = 0
+
+[sub_resource type="AudioEffectPanner" id="AudioEffectPanner_m7cxj"]
+resource_name = "Panner"
+pan = 1.0
 
 [resource]
-bus/0/volume_db = 0.0
-bus/1/name = &"Record"
+bus/0/volume_db = -0.00162125
+bus/0/effect/0/effect = SubResource("AudioEffectHardLimiter_j3pel")
+bus/0/effect/0/enabled = true
+bus/0/effect/1/effect = SubResource("AudioEffectStereoEnhance_52eev")
+bus/0/effect/1/enabled = false
+bus/1/name = &"Music"
 bus/1/solo = false
-bus/1/mute = true
+bus/1/mute = false
 bus/1/bypass_fx = false
 bus/1/volume_db = 0.0
 bus/1/send = &"Master"
-bus/1/effect/0/effect = SubResource("AudioEffectRecord_web")
-bus/1/effect/0/enabled = true
-bus/1/effect/1/effect = SubResource("AudioEffectCapture_mic")
-bus/1/effect/1/enabled = true
-bus/2/name = &"PromptAnalysis"
+bus/2/name = &"Voice"
 bus/2/solo = false
 bus/2/mute = false
 bus/2/bypass_fx = false
-bus/2/volume_db = 0.0
+bus/2/volume_db = -0.00828743
 bus/2/send = &"Master"
-bus/2/effect/0/effect = SubResource("AudioEffectCapture_prompt")
-bus/2/effect/0/enabled = true
+bus/2/effect/0/effect = SubResource("AudioEffectSpectrumAnalyzer_ms2vf")
+bus/2/effect/0/enabled = false
+bus/2/effect/1/effect = SubResource("AudioEffectStereoEnhance_j3pel")
+bus/2/effect/1/enabled = true
+bus/3/name = &"SfxMain"
+bus/3/solo = false
+bus/3/mute = false
+bus/3/bypass_fx = false
+bus/3/volume_db = 0.0
+bus/3/send = &"Master"
+bus/4/name = &"SfxButton"
+bus/4/solo = false
+bus/4/mute = false
+bus/4/bypass_fx = false
+bus/4/volume_db = 0.0
+bus/4/send = &"SfxMain"
+bus/5/name = &"Twitch"
+bus/5/solo = false
+bus/5/mute = false
+bus/5/bypass_fx = false
+bus/5/volume_db = 0.0
+bus/5/send = &"Master"
+bus/6/name = &"Pecho"
+bus/6/solo = false
+bus/6/mute = false
+bus/6/bypass_fx = false
+bus/6/volume_db = 0.0
+bus/6/send = &"Voice"
+bus/6/effect/0/effect = SubResource("AudioEffectPanner_vlckh")
+bus/6/effect/0/enabled = false
+bus/7/name = &"Plmic"
+bus/7/solo = false
+bus/7/mute = true
+bus/7/bypass_fx = false
+bus/7/volume_db = 0.267241
+bus/7/send = &"Voice"
+bus/7/effect/0/effect = SubResource("AudioEffectAmplify_q5ffo")
+bus/7/effect/0/enabled = true
+bus/7/effect/1/effect = SubResource("AudioEffectCompressor_t2fd1")
+bus/7/effect/1/enabled = true
+bus/7/effect/2/effect = SubResource("AudioEffectHighPassFilter_o1w78")
+bus/7/effect/2/enabled = true
+bus/7/effect/3/effect = SubResource("AudioEffectLowPassFilter_hkty1")
+bus/7/effect/3/enabled = true
+bus/7/effect/4/effect = SubResource("AudioEffectDistortion_yru14")
+bus/7/effect/4/enabled = true
+bus/7/effect/5/effect = SubResource("AudioEffectLimiter_a4ctj")
+bus/7/effect/5/enabled = true
+bus/7/effect/6/effect = SubResource("AudioEffectPitchShift_a0fva")
+bus/7/effect/6/enabled = false
+bus/7/effect/7/effect = SubResource("AudioEffectRecord_5w3j4")
+bus/7/effect/7/enabled = true
+bus/7/effect/8/effect = SubResource("AudioEffectSpectrumAnalyzer_lt371")
+bus/7/effect/8/enabled = true
+bus/8/name = &"Vclip"
+bus/8/solo = false
+bus/8/mute = false
+bus/8/bypass_fx = false
+bus/8/volume_db = 0.0
+bus/8/send = &"Voice"
+bus/8/effect/0/effect = SubResource("AudioEffectSpectrumAnalyzer_wvo7x")
+bus/8/effect/0/enabled = true
+bus/8/effect/1/effect = SubResource("AudioEffectPanner_m7cxj")
+bus/8/effect/1/enabled = false
+bus/9/name = &"VclipPlayback"
+bus/9/solo = false
+bus/9/mute = false
+bus/9/bypass_fx = false
+bus/9/volume_db = 0.0
+bus/9/send = &"Voice"
+bus/10/name = &"SfxUnsort"
+bus/10/solo = false
+bus/10/mute = false
+bus/10/bypass_fx = false
+bus/10/volume_db = 0.0
+bus/10/send = &"SfxMain"
+bus/11/name = &"Oil"
+bus/11/solo = false
+bus/11/mute = false
+bus/11/bypass_fx = false
+bus/11/volume_db = -0.00162125
+bus/11/send = &"Plmic_x"
+bus/11/effect/0/effect = SubResource("AudioEffectPitchShift_lf1rq")
+bus/11/effect/0/enabled = true
+bus/12/name = &"MicInput"
+bus/12/solo = false
+bus/12/mute = true
+bus/12/bypass_fx = false
+bus/12/volume_db = 0.0
+bus/12/send = &"Plmic_x"
+bus/12/effect/0/effect = SubResource("AudioEffectRecord_8oaxe")
+bus/12/effect/0/enabled = false
+bus/13/name = &"Plmic_x"
+bus/13/solo = false
+bus/13/mute = true
+bus/13/bypass_fx = false
+bus/13/volume_db = 0.0
+bus/13/send = &"Voice"
+bus/13/effect/0/effect = SubResource("AudioEffectRecord_dbuof")
+bus/13/effect/0/enabled = false
+bus/14/name = &"Mute"
+bus/14/solo = false
+bus/14/mute = true
+bus/14/bypass_fx = false
+bus/14/volume_db = 0.0
+bus/14/send = &"Master"
+bus/15/name = &"Video"
+bus/15/solo = false
+bus/15/mute = false
+bus/15/bypass_fx = false
+bus/15/volume_db = 0.0
+bus/15/send = &"Music"
+bus/16/name = &"VclipDualA"
+bus/16/solo = false
+bus/16/mute = false
+bus/16/bypass_fx = false
+bus/16/volume_db = 0.0
+bus/16/send = &"Vclip"
+bus/16/effect/0/effect = SubResource("AudioEffectSpectrumAnalyzer_plly5")
+bus/16/effect/0/enabled = false
+bus/17/name = &"VclipDualB"
+bus/17/solo = false
+bus/17/mute = false
+bus/17/bypass_fx = false
+bus/17/volume_db = 0.0
+bus/17/send = &"Vclip"
+bus/17/effect/0/effect = SubResource("AudioEffectSpectrumAnalyzer_gfquq")
+bus/17/effect/0/enabled = false
+bus/18/name = &"Chatter"
+bus/18/solo = false
+bus/18/mute = false
+bus/18/bypass_fx = false
+bus/18/volume_db = 0.0
+bus/18/send = &"Master"
+bus/18/effect/0/effect = SubResource("AudioEffectLowPassFilter_j3pel")
+bus/18/effect/0/enabled = false
+bus/18/effect/1/effect = SubResource("AudioEffectEQ21_j3pel")
+bus/18/effect/1/enabled = true
+bus/18/effect/2/effect = SubResource("AudioEffectReverb_j3pel")
+bus/18/effect/2/enabled = true
+bus/19/name = &"SanctuaryVoices"
+bus/19/solo = false
+bus/19/mute = false
+bus/19/bypass_fx = false
+bus/19/volume_db = 0.0
+bus/19/send = &"Voice"
+bus/19/effect/0/effect = SubResource("AudioEffectHighPassFilter_j3pel")
+bus/19/effect/0/enabled = true
+bus/19/effect/1/effect = SubResource("AudioEffectDelay_j3pel")
+bus/19/effect/1/enabled = true
+bus/19/effect/2/effect = SubResource("AudioEffectReverb_g28q7")
+bus/19/effect/2/enabled = true
+bus/20/name = &"StimCell"
+bus/20/solo = false
+bus/20/mute = false
+bus/20/bypass_fx = false
+bus/20/volume_db = 0.0
+bus/20/send = &"SanctuaryVoices"
+bus/21/name = &"StimCellDeepfry"
+bus/21/solo = false
+bus/21/mute = false
+bus/21/bypass_fx = false
+bus/21/volume_db = 0.0
+bus/21/send = &"StimCell"
+bus/21/effect/0/effect = SubResource("AudioEffectDistortion_j3pel")
+bus/21/effect/0/enabled = true

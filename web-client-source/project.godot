@@ -18,6 +18,9 @@ general/default_playback_type.web=1
 [autoload]
 
 RelayClient="*res://relay_client.gd"
+Profile="*res://browser_compat/profile.gd"
+GMCrust="*res://browser_compat/gm_crust.gd"
+M="*res://browser_compat/game_state.gd"
 
 [display]
 
