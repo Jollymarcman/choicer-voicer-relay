@@ -8,7 +8,7 @@ signal pack_sync_received(message: Dictionary)
 signal recording_queue_received(queue_id: int, clips: Array, settings: Dictionary)
 signal recording_queue_cancelled(queue_id: int, reason: String)
 signal recording_requested(request_id: int, clip: Dictionary)
-signal character_choice_requested(request_id: int, options: Array, mystery: bool)
+signal character_choice_requested(request_id: int, options: Array, mystery: bool, max_choices: int)
 signal telephone_progress_received(order: Array, active_index: int, status: String)
 signal playback_begin_received(label: String)
 signal playback_clip_received(file_name: String, wav: Dictionary)
@@ -216,9 +216,9 @@ func _handle_binary(packet: PackedByteArray) -> void:
 		"record_request":
 			recording_requested.emit(int(message.get("request_id", 0)), message.get("clip", {}))
 		"character_choice_request":
-			character_choice_requested.emit(int(message.get("request_id", 0)), message.get("options", []), false)
+			character_choice_requested.emit(int(message.get("request_id", 0)), message.get("options", []), false, int(message.get("max_choices", 1)))
 		"mystery_character_assignment":
-			character_choice_requested.emit(int(message.get("request_id", 0)), [str(message.get("character", ""))], true)
+			character_choice_requested.emit(int(message.get("request_id", 0)), [str(message.get("character", ""))], true, 1)
 		"telephone_progress":
 			telephone_progress_received.emit(message.get("order", []), int(message.get("active_index", -1)), str(message.get("status", "")))
 		"dub_playback_begin":
@@ -258,8 +258,11 @@ func send_recording(request_id: int, result: Dictionary) -> void:
 	_send_message({"type": "record_result", "request_id": request_id, "result": result})
 
 
-func send_character_choice(request_id: int, choice: String) -> void:
-	_send_message({"type": "character_choice_result", "request_id": request_id, "choice": choice})
+func send_character_choice(request_id: int, choice: String, choices: Array[String] = []) -> void:
+	var selected := choices.duplicate()
+	if selected.is_empty() and not choice.is_empty():
+		selected.append(choice)
+	_send_message({"type": "character_choice_result", "request_id": request_id, "choice": choice, "choices": selected})
 
 
 func send_playback_ready() -> void:

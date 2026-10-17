@@ -1073,24 +1073,55 @@ func _on_legacy_recording(request_id: int, payload: Dictionary) -> void:
 	record_overlay.hide()
 
 
-func _on_character_choice(request_id: int, options: Array, mystery: bool) -> void:
+func _on_character_choice(request_id: int, options: Array, mystery: bool, max_choices: int) -> void:
 	var dialog := ConfirmationDialog.new()
 	dialog.title = "Your Secret Character" if mystery else "Choose Your Character"
-	dialog.dialog_text = "You are %s. Keep it secret!" % str(options[0]) if mystery else "Choose the character you will dub."
-	var selector := OptionButton.new()
-	for option in options:
-		selector.add_item(str(option))
+	dialog.dialog_text = "You are %s. Keep it secret!" % str(options[0]) if mystery else "Choose 1 to %d characters you will dub. Each character can only be assigned once." % max_choices
+	var checkboxes: Array[CheckBox] = []
 	if not mystery:
-		dialog.add_child(selector)
+		var scroll := ScrollContainer.new()
+		scroll.custom_minimum_size = Vector2(minf(420.0, get_viewport_rect().size.x - 48.0), 220)
+		var selector := VBoxContainer.new()
+		selector.add_theme_constant_override("separation", 4)
+		scroll.add_child(selector)
+		for option in options:
+			var checkbox := CheckBox.new()
+			checkbox.text = str(option)
+			checkbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			selector.add_child(checkbox)
+			checkboxes.append(checkbox)
+		dialog.add_child(scroll)
 	dialog.get_cancel_button().hide()
 	add_child(dialog)
+	if not mystery:
+		var confirm_button := dialog.get_ok_button()
+		confirm_button.disabled = true
+		for checkbox in checkboxes:
+			checkbox.toggled.connect(_update_character_selection_controls.bind(checkboxes, max_choices, confirm_button))
 	var dialog_width := mini(520, int(get_viewport_rect().size.x - 24.0))
-	dialog.popup_centered(Vector2i(maxi(300, dialog_width), 230 if not mobile_layout else 280))
+	dialog.popup_centered(Vector2i(maxi(300, dialog_width), 360 if not mobile_layout else 400))
 	await dialog.confirmed
-	var choice := str(options[0]) if mystery else selector.get_item_text(selector.selected)
+	var selected: Array[String] = []
+	if mystery:
+		selected.append(str(options[0]))
+	else:
+		for checkbox in checkboxes:
+			if checkbox.button_pressed:
+				selected.append(checkbox.text)
 	dialog.queue_free()
-	RelayClient.send_character_choice(request_id, choice)
-	set_status("Your character is %s. Waiting for recording prompts..." % choice)
+	var choice := selected[0] if not selected.is_empty() else ""
+	RelayClient.send_character_choice(request_id, choice, selected)
+	set_status("Your secret role is %s. Waiting for recording prompts..." % choice if mystery else "You chose %s. Waiting for recording prompts..." % ", ".join(selected))
+
+
+func _update_character_selection_controls(_pressed: bool, checkboxes: Array[CheckBox], max_choices: int, confirm_button: Button) -> void:
+	var selected_count := 0
+	for checkbox in checkboxes:
+		if checkbox.button_pressed:
+			selected_count += 1
+	confirm_button.disabled = selected_count == 0
+	for checkbox in checkboxes:
+		checkbox.disabled = selected_count >= max_choices and not checkbox.button_pressed
 
 
 func _on_telephone_progress(order: Array, active_index: int, text: String) -> void:
