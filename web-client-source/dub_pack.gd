@@ -71,6 +71,7 @@ static func _collect_lines(root: String, folder: String, output: Dictionary) -> 
 			continue
 		output[base] = {
 			"file_name": base,
+			"audio_path": file_path,
 			"stream": stream,
 			"caption": caption,
 			"characters": characters,

@@ -105,6 +105,8 @@ func Plmic():
 	vclip_stream.bus = "VclipPlayback"
 	var vclip_trigger: bool = true
 	var record_stop_trigger: bool = true
+	var browser_bridge: JavaScriptObject = JavaScriptBridge.get_interface("CVAudioBridge") if OS.has_feature("web") else null
+	var browser_capture_started := bool(browser_bridge.start()) if browser_bridge else false
 	var wave_width: int = int(custom_minimum_size.x)
 	var right_cutoff_frames: int = int(wave_width / 3.0 - 24)
 	microphone_on()
@@ -118,10 +120,21 @@ func Plmic():
 		if (i > 33) and (i < right_cutoff_frames + 4):
 			waveform.SamplePlmic()
 		elif (i > right_cutoff_frames + 4) and record_stop_trigger:
+			record_stop_trigger = false
 			plmic_record_effect.set_recording_active(false)
 			plmic_stream.stop()
+			if browser_capture_started:
+				browser_bridge.stop()
 		await get_tree().physics_frame
+	if browser_capture_started:
+		pecho = null
+		vclip_stream.bus = "Vclip"
+		return
 	var recording: AudioStreamWAV = plmic_record_effect.get_recording()
+	if not recording:
+		pecho = null
+		vclip_stream.bus = "Vclip"
+		return
 	if Profile.mic_crust_sample_rate_on: recording = GMCrust.reduce_recording_sample_rate(recording)
 	pecho = CropWav(recording)
 	vclip_stream.bus = "Vclip"

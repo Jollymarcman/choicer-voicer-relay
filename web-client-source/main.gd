@@ -2,6 +2,7 @@ extends Control
 
 const DubPack = preload("res://dub_pack.gd")
 const DubRecordingTiming = preload("res://common/niche/dub_recording_timing.gd")
+const BrowserAudio = preload("res://browser_audio.gd")
 const RECORD_MASTER_SCENE = preload("res://scene/overlay/record_master.tscn")
 const WAUKEGAN_LDO = preload("res://graphic/font/Waukegan LDO.ttf")
 const VIDEO_DUB_SESSION := 5
@@ -57,6 +58,7 @@ var installed_registry: Dictionary = {}
 
 
 func _ready() -> void:
+	BrowserAudio.setup()
 	DirAccess.make_dir_recursive_absolute(PACK_ROOT)
 	DirAccess.make_dir_recursive_absolute(TEMP_ROOT)
 	_load_registry()
@@ -113,7 +115,11 @@ func _build_interface() -> void:
 	buttons.add_child(join_button)
 	leave_button = _make_button("Leave")
 	leave_button.disabled = true
-	leave_button.pressed.connect(func() -> void: RelayClient.leave())
+	leave_button.pressed.connect(func() -> void:
+		var bridge := BrowserAudio.interface()
+		if bridge:
+			bridge.close()
+		RelayClient.leave())
 	buttons.add_child(leave_button)
 	status_label = Label.new()
 	status_label.custom_minimum_size.y = 76
@@ -366,6 +372,9 @@ func _connect_relay_signals() -> void:
 
 func _join() -> void:
 	# The click is also the browser user gesture that permits audio/microphone use.
+	var bridge := BrowserAudio.interface()
+	if bridge:
+		bridge.prepare()
 	record_master.microphone_on()
 	RelayClient.join(room_input.text, name_input.text)
 	join_button.disabled = true
@@ -558,6 +567,7 @@ func _on_recording_queue(queue_id: int, clips: Array, settings: Dictionary) -> v
 		set_status("The required pack is not loaded.")
 		return
 	_queue_cancelled = false
+	var recording_error := ""
 	for index in clips.size():
 		if _queue_cancelled:
 			break
@@ -576,13 +586,17 @@ func _on_recording_queue(queue_id: int, clips: Array, settings: Dictionary) -> v
 			break
 		RelayClient.send_queue_progress(queue_id, index, "Recording line %d" % (index + 1))
 		var override := RelayClient.wav_from_payload(info.get("prompt_wav", {}))
-		var result := await _capture_line(override if override else line.stream, settings)
+		var original_path := "" if override else str(line.get("audio_path", ""))
+		var result := await _capture_line(override if override else line.stream, settings, original_path)
 		if not result.is_empty() and not _queue_cancelled:
 			RelayClient.send_queue_recording(queue_id, index, result)
+		elif not _queue_cancelled:
+			recording_error = "Microphone recording failed. Check browser mic permission, then rejoin to retry."
+			break
 	if not _queue_cancelled:
 		RelayClient.finish_queue(queue_id)
 	record_overlay.hide()
-	set_status("All of your lines were sent. Waiting for the host...")
+	set_status(recording_error if not recording_error.is_empty() else "All of your lines were sent. Waiting for the host...")
 
 
 func _show_record_line(line: Dictionary, index: int, total: int, settings: Dictionary) -> void:
@@ -594,7 +608,7 @@ func _show_record_line(line: Dictionary, index: int, total: int, settings: Dicti
 	record_overlay.show()
 
 
-func _capture_line(stream: AudioStream, settings: Dictionary) -> Dictionary:
+func _capture_line(stream: AudioStream, settings: Dictionary, original_path: String = "") -> Dictionary:
 	if not stream or not record_master:
 		return {}
 	# This is the same RecordMaster flow used by an EXE guest in online_lobby.gd.
@@ -608,13 +622,24 @@ func _capture_line(stream: AudioStream, settings: Dictionary) -> Dictionary:
 	vclip.audio = stream
 	vclip.hint = record_caption.text if Profile.show_captions else ""
 	vclip.directory = "Online parallel recording"
+	var bridge := BrowserAudio.interface()
+	if bridge and not original_path.is_empty() and FileAccess.file_exists(original_path):
+		bridge.analyzeAudio(Marshalls.raw_to_base64(FileAccess.get_file_as_bytes(original_path)))
 	if bool(settings.get("mute_prompts", false)):
 		record_master.SetVclipAudio(stream)
 	else:
 		await record_master.NewVclipPlay(vclip)
+	var original_waveform: Dictionary = await BrowserAudio.wait_for_waveform()
+	if not original_waveform.is_empty():
+		record_master.wave_control.set_vclip_data(original_waveform)
+		record_master.wave_control.waveform.UpdateBoth()
 	record_master.microphone_on()
 	var samples: Dictionary = await record_master.PlmicRecord()
-	var wav: AudioStreamWAV = record_master.wave_control.pecho
+	var wav: AudioStreamWAV = BrowserAudio.take_recording()
+	if wav:
+		wav = DubRecordingTiming.trim_start(wav, 0.4)
+	else:
+		wav = record_master.wave_control.pecho
 	if wav:
 		wav = DubRecordingTiming.align_remote_take(wav)
 	if bool(settings.get("reduce_sample_rate", false)) and wav:
@@ -624,6 +649,8 @@ func _capture_line(stream: AudioStream, settings: Dictionary) -> Dictionary:
 	var waveform_png := PackedByteArray()
 	record_master.StopBoth()
 	record_master.hide()
+	if not wav or wav.data.is_empty():
+		return {}
 	return {"wav": RelayClient.wav_to_payload(wav), "samples": samples, "waveform_png": waveform_png}
 
 
