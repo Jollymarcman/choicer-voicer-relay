@@ -36,6 +36,8 @@ var backlight_color: Color
 
 
 func _ready():
+	countdown_blip.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
+	countdown_final.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 	# These are the desktop game's default studio colours. The browser guest
 	# uses the original recorder scene without loading the desktop pack manager.
 	Colorize({

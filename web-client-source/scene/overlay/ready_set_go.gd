@@ -10,6 +10,8 @@ var countsize: int = 2
 @onready var countdown_final = $CountdownFinal
 
 func _ready():
+	countdown_pre.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
+	countdown_final.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 	Begin()
 
 

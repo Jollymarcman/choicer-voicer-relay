@@ -25,6 +25,11 @@ var stream_playing: float = false
 
 
 func _ready():
+	# Web samples bypass AudioEffectSpectrumAnalyzer and AudioEffectRecord.
+	# The original recorder needs Godot's streamed path for both effects.
+	vclip_stream.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
+	plmic_stream.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
+	pecho_stream.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 	match vclip_source:
 
 

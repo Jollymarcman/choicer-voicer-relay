@@ -77,6 +77,8 @@ func AverageFromPitchSet(pitch_set: PackedByteArray) -> float:
 	var sum: int = 0
 	for sample in pitch_set:
 		sum += sample
+	if sum <= 0:
+		return 0.0
 	var expected_value: float = 0.0
 	for idx in pitch_set.size():
 		expected_value += pitch_set[idx] * idx

@@ -619,10 +619,9 @@ func _capture_line(stream: AudioStream, settings: Dictionary) -> Dictionary:
 		wav = DubRecordingTiming.align_remote_take(wav)
 	if bool(settings.get("reduce_sample_rate", false)) and wav:
 		wav = GMCrust.reduce_recording_sample_rate(wav)
+	# The host reconstructs the waveform from the sample data. Reading the
+	# viewport texture back from WebGL can block indefinitely on some browsers.
 	var waveform_png := PackedByteArray()
-	var waveform_rect: Rect2 = record_master.wave_control.waveform.get_global_rect()
-	if waveform_rect.size.x >= 1.0 and waveform_rect.size.y >= 1.0:
-		waveform_png = record_master.WaveformImage().save_png_to_buffer()
 	record_master.StopBoth()
 	record_master.hide()
 	return {"wav": RelayClient.wav_to_payload(wav), "samples": samples, "waveform_png": waveform_png}

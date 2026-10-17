@@ -73,6 +73,11 @@ func AverageFromPitchSet(pitch_set: PackedByteArray) -> float:
 	var sum: int = 0
 	for sample in pitch_set:
 		sum += sample
+	# A WebAudio analyser can return a completely silent frame while it warms
+	# up. The desktop mixer normally avoids this, but division by zero here
+	# aborts the redraw and leaves the browser waveform blank.
+	if sum <= 0:
+		return 0.0
 	var expected_value: float = 0.0
 	for idx in pitch_set.size():
 		expected_value += pitch_set[idx] * idx
