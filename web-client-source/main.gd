@@ -23,11 +23,13 @@ var roster_label: Label
 var lobby_panel: PanelContainer
 var mic_device_option: OptionButton
 var mic_setup_button: Button
+var mic_monitor_button: Button
 var mic_gain_slider: HSlider
 var mic_gain_value_label: Label
 var mic_level_bar: ProgressBar
 var mic_status_label: Label
 var _mic_meter_elapsed := 0.0
+var _mic_monitor_enabled := false
 
 var record_overlay: ColorRect
 var record_preview: TextureRect
@@ -183,6 +185,11 @@ func _build_microphone_settings(parent: VBoxContainer) -> void:
 	mic_device_option.set_item_metadata(0, "")
 	mic_device_option.item_selected.connect(_on_mic_device_selected)
 	device_row.add_child(mic_device_option)
+	mic_monitor_button = _make_button("Listen to mic")
+	mic_monitor_button.custom_minimum_size.x = 132
+	mic_monitor_button.disabled = true
+	mic_monitor_button.pressed.connect(_on_mic_monitor_pressed)
+	device_row.add_child(mic_monitor_button)
 	mic_setup_button = _make_button("Enable / Refresh")
 	mic_setup_button.custom_minimum_size.x = 158
 	mic_setup_button.pressed.connect(_request_microphone_settings)
@@ -217,7 +224,7 @@ func _build_microphone_settings(parent: VBoxContainer) -> void:
 	mic_level_bar.show_percentage = false
 	gain_row.add_child(mic_level_bar)
 	mic_status_label = Label.new()
-	mic_status_label.text = "Click Enable / Refresh, allow microphone access, then speak to test the meter."
+	mic_status_label.text = "Enable the mic, then speak to test the meter. Use headphones to listen and avoid feedback."
 	mic_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mic_status_label.add_theme_font_size_override("font_size", 14)
 	mic_status_label.add_theme_color_override("font_color", Color("c2e9ef"))
@@ -244,8 +251,10 @@ func _request_microphone_settings() -> void:
 	mic_setup_button.disabled = false
 	join_button.disabled = not RelayClient.room_code.is_empty()
 	if str(bridge.getState()) != "ready":
+		mic_monitor_button.disabled = true
 		mic_status_label.text = "Microphone unavailable: %s" % str(bridge.getError())
 		return
+	mic_monitor_button.disabled = false
 	var devices = JSON.parse_string(str(bridge.listInputDevicesJson()))
 	if not devices is Array or devices.is_empty():
 		mic_status_label.text = "No microphone devices were found. Check browser and Windows permissions."
@@ -263,7 +272,7 @@ func _request_microphone_settings() -> void:
 	if selected_id.is_empty():
 		mic_device_option.select(0)
 		bridge.configureDevice(str(mic_device_option.get_item_metadata(0)))
-	mic_status_label.text = "Speak to test the meter. The input level control changes recording volume."
+	mic_status_label.text = "Speak to test the meter. Use headphones when listening to your mic."
 
 
 func _on_mic_device_selected(index: int) -> void:
@@ -274,6 +283,10 @@ func _on_mic_device_selected(index: int) -> void:
 	if device_id == str(bridge.getSelectedDeviceId()) and str(bridge.getState()) == "ready":
 		return
 	mic_device_option.disabled = true
+	mic_monitor_button.disabled = true
+	_mic_monitor_enabled = false
+	mic_monitor_button.text = "Listen to mic"
+	bridge.setMonitorEnabled(false)
 	join_button.disabled = true
 	mic_status_label.text = "Switching microphone..."
 	bridge.configureDevice(device_id)
@@ -285,9 +298,22 @@ func _on_mic_device_selected(index: int) -> void:
 	mic_device_option.disabled = false
 	join_button.disabled = not RelayClient.room_code.is_empty()
 	if str(bridge.getState()) == "ready":
+		mic_monitor_button.disabled = false
 		mic_status_label.text = "Microphone ready. Speak to test the meter."
 	else:
+		mic_monitor_button.disabled = true
 		mic_status_label.text = "Could not switch microphone: %s" % str(bridge.getError())
+
+
+func _on_mic_monitor_pressed() -> void:
+	var bridge := BrowserAudio.interface()
+	if not bridge or str(bridge.getState()) != "ready":
+		mic_status_label.text = "Enable microphone access before listening to the mic."
+		return
+	_mic_monitor_enabled = not _mic_monitor_enabled
+	bridge.setMonitorEnabled(_mic_monitor_enabled)
+	mic_monitor_button.text = "Stop listening" if _mic_monitor_enabled else "Listen to mic"
+	mic_status_label.text = "Mic monitoring is on — headphones recommended to prevent echo/feedback." if _mic_monitor_enabled else "Mic monitoring is off. Speak to test the level meter."
 
 
 func _on_mic_gain_changed(value: float) -> void:
@@ -530,7 +556,10 @@ func _join() -> void:
 	# The click is also the browser user gesture that permits audio/microphone use.
 	var bridge := BrowserAudio.interface()
 	if bridge:
+		bridge.setMonitorEnabled(false)
 		bridge.prepare()
+	_mic_monitor_enabled = false
+	mic_monitor_button.text = "Listen to mic"
 	record_master.microphone_on()
 	RelayClient.join(room_input.text, name_input.text)
 	join_button.disabled = true
@@ -549,6 +578,7 @@ func set_status(message: String) -> void:
 		leave_button.disabled = true
 		mic_device_option.disabled = false
 		mic_setup_button.disabled = false
+		mic_monitor_button.disabled = not BrowserAudio.interface() or str(BrowserAudio.interface().getState()) != "ready"
 		mic_gain_slider.editable = true
 		name_input.editable = true
 		room_input.editable = true

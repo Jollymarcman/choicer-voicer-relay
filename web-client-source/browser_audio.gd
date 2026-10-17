@@ -9,7 +9,8 @@ const BRIDGE_SOURCE := """
   if (window.CVAudioBridge) return;
   const bridge = {
     state: 'idle', error: '', context: null, stream: null, source: null,
-    processor: null, gainNode: null, selectedDeviceId: '', inputGain: 1,
+    processor: null, gainNode: null, monitorGain: null,
+    selectedDeviceId: '', inputGain: 1, monitorEnabled: false,
     inputDevicesJson: '[]',
     inputLevel: 0,
     chunks: [], capturing: false, wavBase64: '', waveformJson: '', generation: 0,
@@ -32,12 +33,16 @@ const BRIDGE_SOURCE := """
         if (this.source) this.source.disconnect();
         if (this.processor) this.processor.disconnect();
         if (this.gainNode) this.gainNode.disconnect();
+        if (this.monitorGain) this.monitorGain.disconnect();
         if (this.stream) this.stream.getTracks().forEach(track => track.stop());
+        this.monitorEnabled = false;
         const audio = deviceId ? {deviceId: {exact: deviceId}} : true;
         this.stream = await navigator.mediaDevices.getUserMedia({audio});
         this.source = this.context.createMediaStreamSource(this.stream);
         this.gainNode = this.context.createGain();
         this.gainNode.gain.value = this.inputGain;
+        this.monitorGain = this.context.createGain();
+        this.monitorGain.gain.value = 0;
         this.processor = this.context.createScriptProcessor(4096, 1, 1);
         const silent = this.context.createGain();
         silent.gain.value = 0;
@@ -50,6 +55,8 @@ const BRIDGE_SOURCE := """
         };
         this.source.connect(this.gainNode);
         this.gainNode.connect(this.processor);
+        this.gainNode.connect(this.monitorGain);
+        this.monitorGain.connect(this.context.destination);
         this.processor.connect(silent);
         silent.connect(this.context.destination);
         await this.refreshDeviceList();
@@ -75,6 +82,12 @@ const BRIDGE_SOURCE := """
     setInputGain(value) {
       this.inputGain = Math.max(0, Math.min(2, Number(value) || 0));
       if (this.gainNode) this.gainNode.gain.setTargetAtTime(this.inputGain, this.context.currentTime, 0.02);
+    },
+    setMonitorEnabled(enabled) {
+      this.monitorEnabled = !!enabled;
+      if (this.monitorGain && this.context) {
+        this.monitorGain.gain.setTargetAtTime(this.monitorEnabled ? 0.5 : 0, this.context.currentTime, 0.02);
+      }
     },
     getInputLevel() { return this.inputLevel; },
     getState() { return this.state; },
@@ -168,7 +181,8 @@ const BRIDGE_SOURCE := """
       if (this.stream) this.stream.getTracks().forEach(track => track.stop());
       if (this.context) this.context.close();
       this.stream = null; this.context = null; this.source = null;
-      this.processor = null; this.gainNode = null; this.inputLevel = 0;
+      this.processor = null; this.gainNode = null; this.monitorGain = null; this.inputLevel = 0;
+      this.monitorEnabled = false;
       this.state = 'idle';
     }
   };
