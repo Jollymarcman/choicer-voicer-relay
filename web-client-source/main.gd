@@ -21,6 +21,13 @@ var leave_button: Button
 var status_label: Label
 var roster_label: Label
 var lobby_panel: PanelContainer
+var mic_device_option: OptionButton
+var mic_setup_button: Button
+var mic_gain_slider: HSlider
+var mic_gain_value_label: Label
+var mic_level_bar: ProgressBar
+var mic_status_label: Label
+var _mic_meter_elapsed := 0.0
 
 var record_overlay: ColorRect
 var record_preview: TextureRect
@@ -67,6 +74,21 @@ func _ready() -> void:
 	set_status("Enter the host's room code to join a Video Dub.")
 
 
+func _process(delta: float) -> void:
+	if not mic_level_bar:
+		return
+	_mic_meter_elapsed += delta
+	if _mic_meter_elapsed < 0.08:
+		return
+	_mic_meter_elapsed = 0.0
+	var bridge := BrowserAudio.interface()
+	if not bridge or str(bridge.getState()) != "ready":
+		mic_level_bar.value = 0
+		return
+	var rms := maxf(0.00001, float(bridge.getInputLevel()))
+	mic_level_bar.value = clampf((60.0 + 20.0 * log(rms) / log(10.0)) / 60.0 * 100.0, 0.0, 100.0)
+
+
 func _build_interface() -> void:
 	var background := ColorRect.new()
 	background.color = Color("899293")
@@ -83,8 +105,8 @@ func _build_interface() -> void:
 
 	lobby_panel = PanelContainer.new()
 	lobby_panel.set_anchors_preset(Control.PRESET_CENTER)
-	lobby_panel.position = Vector2(-410, -285)
-	lobby_panel.custom_minimum_size = Vector2(820, 570)
+	lobby_panel.position = Vector2(-410, -325)
+	lobby_panel.custom_minimum_size = Vector2(820, 650)
 	lobby_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.29, 0.31, 0.31, 0.9), Color(0.45, 0.92, 1.0), 3))
 	add_child(lobby_panel)
 	var margin := MarginContainer.new()
@@ -106,6 +128,7 @@ func _build_interface() -> void:
 	rows.add_child(subtitle)
 	name_input = _input_row(rows, "Display name", "Player", false)
 	room_input = _input_row(rows, "Room code", "ABCDEFGH", true)
+	_build_microphone_settings(rows)
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 12)
@@ -140,6 +163,139 @@ func _build_interface() -> void:
 	rows.add_child(note)
 	_build_record_overlay()
 	_build_playback_overlay()
+
+
+func _build_microphone_settings(parent: VBoxContainer) -> void:
+	var device_row := HBoxContainer.new()
+	device_row.add_theme_constant_override("separation", 10)
+	parent.add_child(device_row)
+	var device_label := Label.new()
+	device_label.text = "Microphone"
+	device_label.custom_minimum_size.x = 145
+	device_label.add_theme_font_size_override("font_size", 20)
+	device_row.add_child(device_label)
+	mic_device_option = OptionButton.new()
+	mic_device_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mic_device_option.custom_minimum_size.y = 42
+	mic_device_option.add_theme_font_size_override("font_size", 17)
+	mic_device_option.add_theme_stylebox_override("normal", _panel_style(Color("c6d1d3"), Color("607d81"), 2))
+	mic_device_option.add_item("Default microphone")
+	mic_device_option.set_item_metadata(0, "")
+	mic_device_option.item_selected.connect(_on_mic_device_selected)
+	device_row.add_child(mic_device_option)
+	mic_setup_button = _make_button("Enable / Refresh")
+	mic_setup_button.custom_minimum_size.x = 158
+	mic_setup_button.pressed.connect(_request_microphone_settings)
+	device_row.add_child(mic_setup_button)
+
+	var gain_row := HBoxContainer.new()
+	gain_row.add_theme_constant_override("separation", 10)
+	parent.add_child(gain_row)
+	var gain_label := Label.new()
+	gain_label.text = "Mic gain"
+	gain_label.custom_minimum_size.x = 145
+	gain_label.add_theme_font_size_override("font_size", 18)
+	gain_row.add_child(gain_label)
+	mic_gain_slider = HSlider.new()
+	mic_gain_slider.min_value = 0.0
+	mic_gain_slider.max_value = 2.0
+	mic_gain_slider.step = 0.05
+	mic_gain_slider.value = 1.0
+	mic_gain_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mic_gain_slider.custom_minimum_size.y = 28
+	mic_gain_slider.value_changed.connect(_on_mic_gain_changed)
+	gain_row.add_child(mic_gain_slider)
+	mic_gain_value_label = Label.new()
+	mic_gain_value_label.custom_minimum_size.x = 54
+	mic_gain_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	mic_gain_value_label.text = "100%"
+	gain_row.add_child(mic_gain_value_label)
+	mic_level_bar = ProgressBar.new()
+	mic_level_bar.custom_minimum_size = Vector2(135, 24)
+	mic_level_bar.min_value = 0
+	mic_level_bar.max_value = 100
+	mic_level_bar.show_percentage = false
+	gain_row.add_child(mic_level_bar)
+	mic_status_label = Label.new()
+	mic_status_label.text = "Click Enable / Refresh, allow microphone access, then speak to test the meter."
+	mic_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mic_status_label.add_theme_font_size_override("font_size", 14)
+	mic_status_label.add_theme_color_override("font_color", Color("c2e9ef"))
+	parent.add_child(mic_status_label)
+
+
+func _request_microphone_settings() -> void:
+	var bridge := BrowserAudio.interface()
+	if not bridge:
+		mic_status_label.text = "Microphone settings are only available in the browser build."
+		return
+	mic_setup_button.disabled = true
+	join_button.disabled = true
+	mic_status_label.text = "Waiting for browser microphone permission..."
+	if str(bridge.getState()) == "ready":
+		bridge.refreshDevices()
+	else:
+		bridge.prepare()
+	for _attempt in range(120):
+		var state := str(bridge.getState())
+		if state != "pending" and state != "idle":
+			break
+		await get_tree().create_timer(0.1).timeout
+	mic_setup_button.disabled = false
+	join_button.disabled = not RelayClient.room_code.is_empty()
+	if str(bridge.getState()) != "ready":
+		mic_status_label.text = "Microphone unavailable: %s" % str(bridge.getError())
+		return
+	var devices = JSON.parse_string(str(bridge.listInputDevicesJson()))
+	if not devices is Array or devices.is_empty():
+		mic_status_label.text = "No microphone devices were found. Check browser and Windows permissions."
+		return
+	var selected_id := str(bridge.getSelectedDeviceId())
+	mic_device_option.clear()
+	for device in devices:
+		var label := str(device.get("label", "Microphone"))
+		var id := str(device.get("id", ""))
+		mic_device_option.add_item(label)
+		var index := mic_device_option.item_count - 1
+		mic_device_option.set_item_metadata(index, id)
+		if id == selected_id:
+			mic_device_option.select(index)
+	if selected_id.is_empty():
+		mic_device_option.select(0)
+		bridge.configureDevice(str(mic_device_option.get_item_metadata(0)))
+	mic_status_label.text = "Speak to test the meter. The input level control changes recording volume."
+
+
+func _on_mic_device_selected(index: int) -> void:
+	var bridge := BrowserAudio.interface()
+	if not bridge:
+		return
+	var device_id := str(mic_device_option.get_item_metadata(index))
+	if device_id == str(bridge.getSelectedDeviceId()) and str(bridge.getState()) == "ready":
+		return
+	mic_device_option.disabled = true
+	join_button.disabled = true
+	mic_status_label.text = "Switching microphone..."
+	bridge.configureDevice(device_id)
+	for _attempt in range(120):
+		var state := str(bridge.getState())
+		if state != "pending" and state != "idle":
+			break
+		await get_tree().create_timer(0.1).timeout
+	mic_device_option.disabled = false
+	join_button.disabled = not RelayClient.room_code.is_empty()
+	if str(bridge.getState()) == "ready":
+		mic_status_label.text = "Microphone ready. Speak to test the meter."
+	else:
+		mic_status_label.text = "Could not switch microphone: %s" % str(bridge.getError())
+
+
+func _on_mic_gain_changed(value: float) -> void:
+	if mic_gain_value_label:
+		mic_gain_value_label.text = "%d%%" % roundi(value * 100.0)
+	var bridge := BrowserAudio.interface()
+	if bridge:
+		bridge.setInputGain(value)
 
 
 func _input_row(parent: VBoxContainer, label_text: String, placeholder: String, uppercase: bool) -> LineEdit:
@@ -379,6 +535,9 @@ func _join() -> void:
 	RelayClient.join(room_input.text, name_input.text)
 	join_button.disabled = true
 	leave_button.disabled = false
+	mic_device_option.disabled = true
+	mic_setup_button.disabled = true
+	mic_gain_slider.editable = false
 	name_input.editable = false
 	room_input.editable = false
 
@@ -388,6 +547,9 @@ func set_status(message: String) -> void:
 	if RelayClient.room_code.is_empty():
 		join_button.disabled = false
 		leave_button.disabled = true
+		mic_device_option.disabled = false
+		mic_setup_button.disabled = false
+		mic_gain_slider.editable = true
 		name_input.editable = true
 		room_input.editable = true
 

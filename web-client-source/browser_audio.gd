@@ -8,38 +8,78 @@ const BRIDGE_SOURCE := """
 (() => {
   if (window.CVAudioBridge) return;
   const bridge = {
-    state: 'idle', error: '', context: null, stream: null, processor: null,
+    state: 'idle', error: '', context: null, stream: null, source: null,
+    processor: null, gainNode: null, selectedDeviceId: '', inputGain: 1,
+    inputDevicesJson: '[]',
+    inputLevel: 0,
     chunks: [], capturing: false, wavBase64: '', waveformJson: '', generation: 0,
     prepare() {
       if (this.state === 'ready' || this.state === 'pending') return;
+      this.configureDevice(this.selectedDeviceId);
+    },
+    async configureDevice(deviceId) {
+      if (this.capturing) return;
       this.error = '';
       this.state = 'pending';
+      this.selectedDeviceId = deviceId || '';
       const Context = window.AudioContext || window.webkitAudioContext;
       if (!Context || !navigator.mediaDevices?.getUserMedia) {
         this.state = 'error'; this.error = 'Browser microphone API is unavailable'; return;
       }
-      this.context = new Context();
-      this.context.resume();
-      navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
-        this.stream = stream;
-        const source = this.context.createMediaStreamSource(stream);
-        const processor = this.context.createScriptProcessor(4096, 1, 1);
+      try {
+        if (!this.context) this.context = new Context();
+        await this.context.resume();
+        if (this.source) this.source.disconnect();
+        if (this.processor) this.processor.disconnect();
+        if (this.gainNode) this.gainNode.disconnect();
+        if (this.stream) this.stream.getTracks().forEach(track => track.stop());
+        const audio = deviceId ? {deviceId: {exact: deviceId}} : true;
+        this.stream = await navigator.mediaDevices.getUserMedia({audio});
+        this.source = this.context.createMediaStreamSource(this.stream);
+        this.gainNode = this.context.createGain();
+        this.gainNode.gain.value = this.inputGain;
+        this.processor = this.context.createScriptProcessor(4096, 1, 1);
         const silent = this.context.createGain();
         silent.gain.value = 0;
-        processor.onaudioprocess = event => {
-          if (this.capturing) {
-            this.chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
-          }
+        this.processor.onaudioprocess = event => {
+          const data = event.inputBuffer.getChannelData(0);
+          let squares = 0;
+          for (let i = 0; i < data.length; i++) squares += data[i] * data[i];
+          this.inputLevel = Math.sqrt(squares / Math.max(1, data.length));
+          if (this.capturing) this.chunks.push(new Float32Array(data));
         };
-        source.connect(processor);
-        processor.connect(silent);
+        this.source.connect(this.gainNode);
+        this.gainNode.connect(this.processor);
+        this.processor.connect(silent);
         silent.connect(this.context.destination);
-        this.processor = processor;
+        await this.refreshDeviceList();
         this.state = 'ready';
-      }).catch(error => {
+      } catch (error) {
         this.state = 'error'; this.error = String(error);
-      });
+      }
     },
+    async refreshDeviceList() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      this.inputDevicesJson = JSON.stringify(devices
+        .filter(device => device.kind === 'audioinput')
+        .map((device, index) => ({id: device.deviceId, label: device.label || `Microphone ${index + 1}`})));
+    },
+    async refreshDevices() {
+      if (this.state !== 'ready') { this.prepare(); return; }
+      this.state = 'pending';
+      try { await this.refreshDeviceList(); }
+      catch (error) { this.error = String(error); }
+      this.state = 'ready';
+    },
+    listInputDevicesJson() { return this.inputDevicesJson; },
+    setInputGain(value) {
+      this.inputGain = Math.max(0, Math.min(2, Number(value) || 0));
+      if (this.gainNode) this.gainNode.gain.setTargetAtTime(this.inputGain, this.context.currentTime, 0.02);
+    },
+    getInputLevel() { return this.inputLevel; },
+    getState() { return this.state; },
+    getError() { return this.error; },
+    getSelectedDeviceId() { return this.selectedDeviceId; },
     start() {
       if (this.state !== 'ready') return false;
       this.chunks = [];
@@ -127,7 +167,8 @@ const BRIDGE_SOURCE := """
       this.capturing = false;
       if (this.stream) this.stream.getTracks().forEach(track => track.stop());
       if (this.context) this.context.close();
-      this.stream = null; this.context = null; this.processor = null;
+      this.stream = null; this.context = null; this.source = null;
+      this.processor = null; this.gainNode = null; this.inputLevel = 0;
       this.state = 'idle';
     }
   };
