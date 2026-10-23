@@ -160,3 +160,41 @@ test("keeps protocol 3 rooms working and rejects a different-version client", as
   host.close();
   oldFriend.close();
 });
+
+
+test("allows eight players per room and rejects the ninth", async (context) => {
+  const relay = createRelayServer({ port: 0, host: "127.0.0.1" });
+  const address = await relay.listen();
+  context.after(() => relay.close());
+  const url = `ws://127.0.0.1:${address.port}`;
+  const peers = [];
+
+  const host = new WebSocket(url);
+  peers.push(host);
+  await once(host, "open");
+  host.send(JSON.stringify({ type: "create", protocol: 7, name: "Host" }));
+  const created = JSON.parse((await nextMessage(host)).data.toString());
+
+  for (let player = 2; player <= 8; player += 1) {
+    const friend = new WebSocket(url);
+    peers.push(friend);
+    await once(friend, "open");
+    const hostNotice = nextMessage(host);
+    friend.send(JSON.stringify({ type: "join", protocol: 7, room: created.room, name: `Player ${player}` }));
+    const joined = JSON.parse((await nextMessage(friend)).data.toString());
+    assert.equal(joined.peerId, player);
+    assert.equal(JSON.parse((await hostNotice).data.toString()).type, "peer_joined");
+  }
+
+  const ninth = new WebSocket(url);
+  peers.push(ninth);
+  await once(ninth, "open");
+  const rejected = once(ninth, "close");
+  ninth.send(JSON.stringify({ type: "join", protocol: 7, room: created.room, name: "Player 9" }));
+  const [code, reason] = await rejected;
+  assert.equal(code, 4003);
+  assert.equal(reason.toString(), "Room is full");
+  assert.equal(relay.rooms.get(created.room).peers.size, 8);
+
+  for (const peer of peers) peer.close(1000);
+});
