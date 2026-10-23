@@ -5,7 +5,7 @@ const http = require("node:http");
 const { WebSocket, WebSocketServer } = require("ws");
 
 const SUPPORTED_PROTOCOLS = new Set([3, 4, 5, 6, 7]);
-const MAX_PLAYERS = 4;
+const MAX_PLAYERS = 8;
 const MAX_PAYLOAD_BYTES = 64 * 1024 * 1024;
 const ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_RECONNECT_GRACE_MS = 120_000;
