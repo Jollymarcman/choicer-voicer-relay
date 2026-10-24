@@ -54,7 +54,7 @@ func get_configured_relay_url() -> String:
 func set_configured_relay_url(value: String) -> Dictionary:
 	var normalized_url := normalize_relay_url(value)
 	if normalized_url.is_empty():
-		return {"ok": false, "error": "Enter a valid ws:// or wss:// relay address."}
+		return {"ok": false, "error": "Browser guests need a secure wss:// relay URL. https:// addresses and bare hostnames are converted automatically."}
 	var config := ConfigFile.new()
 	config.set_value("online", "relay_url", normalized_url)
 	var error := config.save(RELAY_SETTINGS_PATH)
@@ -77,6 +77,8 @@ static func normalize_relay_url(value: String) -> String:
 	elif not url.contains("://"):
 		url = "wss://" + url
 	if not url.begins_with("wss://") and not url.begins_with("ws://"):
+		return ""
+	if url.begins_with("ws://"):
 		return ""
 	if url.contains(" ") or url.contains("\t") or url.contains("\n") or url.contains("\r"):
 		return ""

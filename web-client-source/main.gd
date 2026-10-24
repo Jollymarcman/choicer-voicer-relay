@@ -183,7 +183,7 @@ func _build_interface() -> void:
 	relay_default_button.pressed.connect(_reset_relay_setting)
 	relay_actions_row.add_child(relay_default_button)
 	relay_status_label = Label.new()
-	relay_status_label.text = "Saved on this browser. Everyone in the lobby must use the same compatible relay."
+	relay_status_label.text = "Use an https:// address or hostname. This secure page requires WSS; everyone must use the same relay."
 	relay_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	relay_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	relay_status_label.add_theme_color_override("font_color", Color("c2e9ef"))
