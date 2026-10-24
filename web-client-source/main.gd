@@ -16,6 +16,10 @@ const ALLOWED_EXTENSIONS := ["ini", "txt", "json", "cfg", "wav", "mp3", "ogg", "
 
 var name_input: LineEdit
 var room_input: LineEdit
+var relay_url_input: LineEdit
+var relay_status_label: Label
+var relay_save_button: Button
+var relay_default_button: Button
 var join_button: Button
 var leave_button: Button
 var status_label: Label
@@ -29,6 +33,8 @@ var lobby_subtitle: Label
 var lobby_note: Label
 var name_row: HBoxContainer
 var room_row: HBoxContainer
+var relay_row: HBoxContainer
+var relay_actions_row: HBoxContainer
 var mic_device_row: HBoxContainer
 var mic_action_row: HBoxContainer
 var mic_gain_row: HBoxContainer
@@ -160,6 +166,28 @@ func _build_interface() -> void:
 	name_row = name_input.get_parent() as HBoxContainer
 	room_input = _input_row(lobby_rows, "Room code", "ABCDEFGH", true)
 	room_row = room_input.get_parent() as HBoxContainer
+	relay_url_input = _input_row(lobby_rows, "Relay address", "https://your-compatible-relay.example.com", false)
+	relay_row = relay_url_input.get_parent() as HBoxContainer
+	relay_url_input.max_length = 512
+	relay_url_input.text = RelayClient.get_configured_relay_url()
+	relay_actions_row = HBoxContainer.new()
+	relay_actions_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	relay_actions_row.add_theme_constant_override("separation", 8)
+	lobby_rows.add_child(relay_actions_row)
+	relay_save_button = _make_button("Save Relay")
+	relay_save_button.custom_minimum_size.x = 150
+	relay_save_button.pressed.connect(_save_relay_setting)
+	relay_actions_row.add_child(relay_save_button)
+	relay_default_button = _make_button("Use Default")
+	relay_default_button.custom_minimum_size.x = 150
+	relay_default_button.pressed.connect(_reset_relay_setting)
+	relay_actions_row.add_child(relay_default_button)
+	relay_status_label = Label.new()
+	relay_status_label.text = "Saved on this browser. Everyone in the lobby must use the same compatible relay."
+	relay_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	relay_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	relay_status_label.add_theme_color_override("font_color", Color("c2e9ef"))
+	lobby_rows.add_child(relay_status_label)
 	_build_microphone_settings(lobby_rows)
 	join_leave_row = HBoxContainer.new()
 	join_leave_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -622,13 +650,19 @@ func _apply_responsive_layout() -> void:
 		lobby_note.add_theme_font_size_override("font_size", 15)
 		status_label.add_theme_font_size_override("font_size", 16)
 		roster_label.add_theme_font_size_override("font_size", 16)
-		for row in [name_row, room_row, mic_device_row, mic_gain_row]:
+		for row in [name_row, room_row, relay_row, mic_device_row, mic_gain_row]:
 			for child in row.get_children():
 				if child is Label:
 					child.custom_minimum_size.x = 96
 					child.add_theme_font_size_override("font_size", 16)
 		name_input.add_theme_font_size_override("font_size", 18)
 		room_input.add_theme_font_size_override("font_size", 18)
+		relay_url_input.add_theme_font_size_override("font_size", 15)
+		relay_status_label.add_theme_font_size_override("font_size", 14)
+		for button in [relay_save_button, relay_default_button]:
+			button.custom_minimum_size = Vector2(0, 48)
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			button.add_theme_font_size_override("font_size", 15)
 		mic_device_option.custom_minimum_size.y = 50
 		for button in [mic_monitor_button, mic_setup_button, join_button, leave_button]:
 			button.custom_minimum_size = Vector2(0, 54)
@@ -753,6 +787,12 @@ func _connect_relay_signals() -> void:
 
 
 func _join() -> void:
+	var relay_result := RelayClient.set_configured_relay_url(relay_url_input.text)
+	if not relay_result.ok:
+		set_status(str(relay_result.error))
+		return
+	relay_url_input.text = str(relay_result.url)
+	relay_status_label.text = "Saved. Everyone must use the same compatible relay. Applies to this connection."
 	# The click is also the browser user gesture that permits audio/microphone use.
 	var bridge := BrowserAudio.interface()
 	if bridge:
@@ -769,6 +809,27 @@ func _join() -> void:
 	mic_gain_slider.editable = false
 	name_input.editable = false
 	room_input.editable = false
+	relay_url_input.editable = false
+	relay_save_button.disabled = true
+	relay_default_button.disabled = true
+
+
+func _save_relay_setting() -> void:
+	var result := RelayClient.set_configured_relay_url(relay_url_input.text)
+	if not result.ok:
+		relay_status_label.text = str(result.error)
+		return
+	relay_url_input.text = str(result.url)
+	relay_status_label.text = "Saved on this browser. Everyone must use this same compatible relay."
+
+
+func _reset_relay_setting() -> void:
+	var result := RelayClient.reset_configured_relay_url()
+	if not result.ok:
+		relay_status_label.text = str(result.error)
+		return
+	relay_url_input.text = str(result.url)
+	relay_status_label.text = "Reset and saved to the default Choicer Voicer relay."
 
 
 func set_status(message: String) -> void:
@@ -782,13 +843,16 @@ func set_status(message: String) -> void:
 		mic_gain_slider.editable = true
 		name_input.editable = true
 		room_input.editable = true
+		relay_url_input.editable = true
+		relay_save_button.disabled = false
+		relay_default_button.disabled = false
 
 
 func _update_roster(players: Array) -> void:
 	if players.is_empty():
 		roster_label.text = "No active lobby"
 		return
-	var lines := PackedStringArray(["Players (%d/4):" % players.size()])
+	var lines := PackedStringArray(["Players (%d/%d):" % [players.size(), RelayClient.MAX_PLAYERS]])
 	for index in players.size():
 		var entry: Dictionary = players[index]
 		lines.append("  %d. %s%s" % [index + 1, str(entry.get("name", "Player")), " (host)" if int(entry.get("peer_id", 0)) == 1 else ""])

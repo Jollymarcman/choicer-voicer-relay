@@ -1,5 +1,9 @@
 extends Node
 
+const MAX_PLAYERS: int = 8
+const RELAY_URL := "wss://choicer-voicer-relay-marc.onrender.com"
+const RELAY_SETTINGS_PATH := "user://online_multiplayer.cfg"
+
 signal status_changed(message: String)
 signal roster_changed(players: Array)
 signal lobby_started(session_type: int, dub_style: int)
@@ -16,7 +20,6 @@ signal playback_end_received
 signal playback_go_received
 signal kicked
 
-const RELAY_URL := "wss://choicer-voicer-relay.onrender.com"
 const PROTOCOL_VERSION := 7
 const SOCKET_BUFFER_BYTES := 64 * 1024 * 1024
 const CONNECT_TIMEOUT_SECONDS := 25.0
@@ -27,6 +30,7 @@ var room_code := ""
 var roster: Dictionary = {}
 var connected := false
 var session_started := false
+var _configured_relay_url := RELAY_URL
 
 var _socket: WebSocketPeer
 var _peer_id := 0
@@ -37,6 +41,58 @@ var _retry_wait := -1.0
 var _retry_attempt := 0
 var _keepalive_elapsed := 0.0
 var _active_queue_id := 0
+
+
+func _ready() -> void:
+	_load_relay_setting()
+
+
+func get_configured_relay_url() -> String:
+	return _configured_relay_url
+
+
+func set_configured_relay_url(value: String) -> Dictionary:
+	var normalized_url := normalize_relay_url(value)
+	if normalized_url.is_empty():
+		return {"ok": false, "error": "Enter a valid ws:// or wss:// relay address."}
+	var config := ConfigFile.new()
+	config.set_value("online", "relay_url", normalized_url)
+	var error := config.save(RELAY_SETTINGS_PATH)
+	if error != OK:
+		return {"ok": false, "error": "Could not save relay settings (%s)." % error_string(error)}
+	_configured_relay_url = normalized_url
+	return {"ok": true, "url": normalized_url}
+
+
+func reset_configured_relay_url() -> Dictionary:
+	return set_configured_relay_url(RELAY_URL)
+
+
+static func normalize_relay_url(value: String) -> String:
+	var url := value.strip_edges()
+	if url.begins_with("https://"):
+		url = "wss://" + url.substr(8)
+	elif url.begins_with("http://"):
+		url = "ws://" + url.substr(7)
+	elif not url.contains("://"):
+		url = "wss://" + url
+	if not url.begins_with("wss://") and not url.begins_with("ws://"):
+		return ""
+	if url.contains(" ") or url.contains("\t") or url.contains("\n") or url.contains("\r"):
+		return ""
+	var authority := url.substr(url.find("://") + 3).split("/", false, 1)[0].split("?", false, 1)[0].split("#", false, 1)[0]
+	if authority.is_empty():
+		return ""
+	return url
+
+
+func _load_relay_setting() -> void:
+	var config := ConfigFile.new()
+	if config.load(RELAY_SETTINGS_PATH) != OK:
+		return
+	var saved_url := normalize_relay_url(str(config.get_value("online", "relay_url", RELAY_URL)))
+	if not saved_url.is_empty():
+		_configured_relay_url = saved_url
 
 
 func _process(delta: float) -> void:
@@ -81,6 +137,9 @@ func join(code: String, player_name: String) -> void:
 	if room_code.is_empty():
 		_set_status("Enter the host's room code first.")
 		return
+	if _configured_relay_url.is_empty():
+		_set_status("Set a valid relay address before joining.")
+		return
 	_set_status("Connecting to room %s; a sleeping relay can take about a minute..." % room_code)
 	_connect()
 
@@ -112,7 +171,7 @@ func _connect() -> void:
 	_socket.outbound_buffer_size = SOCKET_BUFFER_BYTES
 	_socket.max_queued_packets = 256
 	_socket.heartbeat_interval = 10.0
-	var error := _socket.connect_to_url(RELAY_URL)
+	var error := _socket.connect_to_url(_configured_relay_url)
 	if error != OK:
 		_socket = null
 		_schedule_retry("Could not start the relay connection (error %s)." % error)
